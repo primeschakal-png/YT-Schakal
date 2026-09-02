@@ -122,7 +122,12 @@ function Zeige-Linie {
 function Warte-AufTaste {
     Write-Host ''
     Melde 'Weiter mit einer beliebigen Taste ...' 'Grau'
-    [void]$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+    try {
+        [void]$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+    } catch {
+        # In der ISE und bei umgeleiteter Eingabe gibt es kein RawUI
+        [void](Read-Host)
+    }
 }
 
 function Loese-Zielordner {
@@ -313,21 +318,42 @@ function Normalisiere-Eintrag {
     return ($Text.Trim().ToLowerInvariant() -replace '\s+', ' ')
 }
 
+$script:ArchivSatz     = $null
+$script:ArchivGeladen  = $false
+
+function Lade-ArchivInSpeicher {
+    if ($script:ArchivGeladen) { return }
+
+    $script:ArchivSatz = New-Object 'System.Collections.Generic.HashSet[string]'
+    if (Test-Path $DateiArchiv) {
+        try {
+            foreach ($zeile in (Get-Content -Path $DateiArchiv -Encoding UTF8)) {
+                if ($zeile) { [void]$script:ArchivSatz.Add((Normalisiere-Eintrag $zeile)) }
+            }
+        } catch {
+            Schreibe-Log "Archiv nicht lesbar: $($_.Exception.Message)" 'WARN'
+        }
+    }
+    $script:ArchivGeladen = $true
+}
+
 function Ist-ImArchiv {
     param([string]$Eintrag, $Konfig)
-    if (-not $Konfig.ArchivNutzen)     { return $false }
-    if (-not (Test-Path $DateiArchiv)) { return $false }
-    $gesucht = Normalisiere-Eintrag $Eintrag
-    foreach ($zeile in (Get-Content -Path $DateiArchiv -Encoding UTF8)) {
-        if ((Normalisiere-Eintrag $zeile) -eq $gesucht) { return $true }
-    }
-    return $false
+    if (-not $Konfig.ArchivNutzen) { return $false }
+    Lade-ArchivInSpeicher
+    return $script:ArchivSatz.Contains((Normalisiere-Eintrag $Eintrag))
 }
 
 function Merke-ImArchiv {
     param([string]$Eintrag, $Konfig)
     if (-not $Konfig.ArchivNutzen) { return }
-    try { Add-Content -Path $DateiArchiv -Value $Eintrag.Trim() -Encoding UTF8 } catch { }
+    Lade-ArchivInSpeicher
+    [void]$script:ArchivSatz.Add((Normalisiere-Eintrag $Eintrag))
+    try {
+        Add-Content -Path $DateiArchiv -Value $Eintrag.Trim() -Encoding UTF8
+    } catch {
+        Schreibe-Log "Archiveintrag nicht geschrieben: $($_.Exception.Message)" 'FEHLER'
+    }
 }
 
 # =============================================================================
@@ -1482,7 +1508,16 @@ function Fuehre-SpotdlSaveAus {
     $outDatei = Join-Path $env:TEMP ('spotdl-save-out-' + [guid]::NewGuid().ToString('N') + '.txt')
     $errDatei = Join-Path $env:TEMP ('spotdl-save-err-' + [guid]::NewGuid().ToString('N') + '.txt')
 
-    $argZeile = 'save "{0}" --save-file "{1}" --threads {2}' -f $Abfrage, $ZielDatei, $Threads
+    # Start-Process nimmt in PowerShell 5.1 nur eine Zeichenkette entgegen und
+    # quotet nicht selbst. Anfuehrungszeichen im Argument wuerden den Aufruf
+    # zerlegen, deshalb hier nach Windows-Konvention escapen.
+    function Schuetze-Argument {
+        param([string]$Wert)
+        return '"' + ($Wert -replace '"', '\"') + '"'
+    }
+
+    $argZeile = 'save {0} --save-file {1} --threads {2}' -f `
+                (Schuetze-Argument $Abfrage), (Schuetze-Argument $ZielDatei), [int]$Threads
     if ($AlbumTyp) { $argZeile += (' --album-type {0}' -f $AlbumTyp) }
 
     $prozess = Start-Process -FilePath 'spotdl' -ArgumentList $argZeile `
@@ -1818,8 +1853,11 @@ function Menue-Sync {
         Zeige-Linie '='
         Melde '  Playlist-Sync' 'Titel'
         Zeige-Linie '='
-        Melde '  Haelt einen Ordner mit einer Spotify-Playlist gleich:' 'Grau'
-        Melde '  Neues wird geladen, Entferntes wird geloescht.' 'Grau'
+        Melde '  Haelt einen Ordner mit einer Spotify-Playlist gleich.' 'Grau'
+        Write-Host ''
+        Melde '  ACHTUNG: Beim Abgleich werden Dateien GELOESCHT, die nicht' 'Warnung'
+        Melde '  mehr in der Playlist stehen - ohne Papierkorb, ohne Rueckfrage.' 'Warnung'
+        Melde '  Nur fuer Ordner verwenden, die allein der Playlist gehoeren.' 'Warnung'
         Write-Host ''
 
         $dateien = @(Get-ChildItem -Path $OrdnerSync -Filter '*.spotdl' -File -ErrorAction SilentlyContinue)
@@ -2112,6 +2150,8 @@ function Menue-Archiv {
             $b = Read-Host '  spotdl-Archiv wirklich leeren? (j/n)'
             if ($b -match '^[jJyY]') {
                 Remove-Item $DateiArchiv -ErrorAction SilentlyContinue
+                $script:ArchivSatz    = $null
+                $script:ArchivGeladen = $false
                 Melde '  Geleert.' 'Gut'
                 Schreibe-Log 'spotdl-Archiv geleert.' 'INFO'
                 Start-Sleep -Seconds 1
@@ -2146,7 +2186,17 @@ function Menue-UsbStick {
     Write-Host ''
 
     # --- Wechseldatentraeger finden -----------------------------------------
-    $laufwerke = @(Get-WmiObject Win32_LogicalDisk -Filter 'DriveType=2' -ErrorAction SilentlyContinue)
+    # Get-CimInstance ist der aktuelle Weg; Get-WmiObject fehlt in PowerShell 7.
+    $laufwerke = @()
+    try {
+        $laufwerke = @(Get-CimInstance -ClassName Win32_LogicalDisk -Filter 'DriveType=2' -ErrorAction Stop)
+    } catch {
+        try {
+            $laufwerke = @(Get-WmiObject Win32_LogicalDisk -Filter 'DriveType=2' -ErrorAction SilentlyContinue)
+        } catch {
+            Melde "  Laufwerke nicht abfragbar: $($_.Exception.Message)" 'Fehler'
+        }
+    }
 
     if ($laufwerke.Count -eq 0) {
         Melde '  Kein USB-Stick gefunden. Einstecken und neu versuchen.' 'Fehler'
