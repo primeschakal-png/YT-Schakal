@@ -1338,9 +1338,10 @@ function Menue-Link {
     Zeige-Linie '='
     Melde '  Link laden' 'Titel'
     Zeige-Linie '='
-    Melde '  Spotify-Link      -> spotdl (sauberes Tagging)' 'Grau'
+    Melde '  Spotify-Link      -> spotdl (Track, Album ODER Playlist - sauberes Tagging)' 'Grau'
     Melde '  YouTube und Rest  -> yt-dlp  (auch Live, Sets, Vortraege)' 'Grau'
     Melde '  Kein Link         -> spotdl-Suche' 'Grau'
+    Melde '  Fuer eine ganze Kuenstler-Diskografie: Menuepunkt 5' 'Grau'
     Write-Host ''
 
     $eingabe = (Read-Host '  Link oder Suchbegriff').Trim()
@@ -1803,6 +1804,18 @@ function Menue-Diskografie {
 
     # --- Bandname statt Link: fertigen Suchlink anbieten --------------------
     if ($eingabe -notmatch '^https?://open\.spotify\.com/(artist|album)/') {
+
+        # Playlist- oder Track-Link erkannt: gezielt auf Menuepunkt 3 verweisen,
+        # statt ihn wie einen Bandnamen zu behandeln.
+        if ($eingabe -match '^https?://open\.spotify\.com/(playlist|track)/') {
+            Write-Host ''
+            Melde '  Das ist ein Playlist- bzw. Track-Link, keine Kuenstlerseite.' 'Warnung'
+            Melde '  Diskografie kennt nur Kuenstler- und Album-Links.' 'Grau'
+            Melde '  Fuer Playlists und Einzeltitel: Menuepunkt 3 (Link laden).' 'Titel'
+            Warte-AufTaste
+            return
+        }
+
         $such = [uri]::EscapeDataString($eingabe)
         Write-Host ''
         Melde '  Das ist kein Spotify-Link. Oeffne im Browser (ohne Konto nutzbar):' 'Warnung'
@@ -3283,7 +3296,7 @@ function Zeige-Hauptmenue {
     Write-Host ''
     Melde '     [1]  Einzelsuche          - Titel eingeben, wird gesucht und geladen'
     Melde '     [2]  Wunschliste          - alle Eintraege aus wunschliste.txt'
-    Melde '     [3]  Link laden           - Spotify, YouTube, Soundcloud, Bandcamp'
+    Melde '     [3]  Link laden           - Spotify (auch Playlist), YouTube, Soundcloud, Bandcamp'
     Melde '     [4]  Kanal-Playlists      - YouTube-Kanal durchsuchen und auswaehlen'
     Melde '     [5]  Diskografie          - Alben eines Kuenstlers auswaehlen' 'Titel'
     Melde '     [6]  Playlist-Sync        - Ordner mit Spotify-Playlist gleichhalten'
