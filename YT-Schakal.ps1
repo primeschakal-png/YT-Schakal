@@ -30,7 +30,7 @@ try {
 $ErrorActionPreference = 'Continue'
 
 # Bei jeder nennenswerten Aenderung hochzaehlen und im CHANGELOG eintragen.
-$Version = '1.4.2'
+$Version = '1.4.3'
 
 # =============================================================================
 #  PFADE
@@ -469,10 +469,19 @@ function Ist-ImArchiv {
 function Merke-ImArchiv {
     param([string]$Eintrag, $Konfig)
     if (-not $Konfig.ArchivNutzen) { return }
+
+    $roh = ([string]$Eintrag).Trim()
+    if ([string]::IsNullOrWhiteSpace($roh)) { return }
+
     Lade-ArchivInSpeicher
-    [void]$script:ArchivSatz.Add((Normalisiere-Eintrag $Eintrag))
+
+    # HashSet.Add liefert $false, wenn der Eintrag schon drin ist. Ohne diese
+    # Pruefung landet dieselbe Zeile bei jedem Lauf erneut in der Datei -
+    # besonders seit "war bereits vorhanden" ebenfalls archiviert wird.
+    if (-not $script:ArchivSatz.Add((Normalisiere-Eintrag $roh))) { return }
+
     try {
-        Add-Content -Path $DateiArchiv -Value $Eintrag.Trim() -Encoding UTF8
+        Add-Content -Path $DateiArchiv -Value $roh -Encoding UTF8
     } catch {
         Schreibe-Log "Archiveintrag nicht geschrieben: $($_.Exception.Message)" 'FEHLER'
     }
@@ -687,6 +696,17 @@ function Baue-SpotdlArgumente {
 
 function Hole-MitSpotdl {
     param($Konfig, [string]$Abfrage, [string]$Befehl = 'download', [int]$Soll = 0)
+
+    if (-not (Get-Command spotdl -ErrorAction SilentlyContinue)) {
+        Melde '  spotdl ist nicht installiert.  Abhilfe:  pip install spotdl' 'Fehler'
+        return [pscustomobject]@{
+            Erfolg         = $false
+            ExitCode       = -1
+            NeueDateien    = 0
+            Uebersprungen  = 0
+            Ermittlungsart = 'Nicht gestartet'
+        }
+    }
 
     $argumente = Baue-SpotdlArgumente -Konfig $Konfig -Befehl $Befehl -Abfrage $Abfrage
 
@@ -2059,6 +2079,17 @@ function Hole-MitSpotdlMehrfach {
       eines Albums) in einem einzigen spotdl-Aufruf entgegen.
     #>
     param($Konfig, [string[]]$Abfragen, [int]$Soll = 0)
+
+    if (-not (Get-Command spotdl -ErrorAction SilentlyContinue)) {
+        Melde '  spotdl ist nicht installiert.  Abhilfe:  pip install spotdl' 'Fehler'
+        return [pscustomobject]@{
+            Erfolg         = $false
+            ExitCode       = -1
+            NeueDateien    = 0
+            Uebersprungen  = 0
+            Ermittlungsart = 'Nicht gestartet'
+        }
+    }
 
     $argumente = Baue-SpotdlArgumente -Konfig $Konfig -Befehl 'download' -Abfrage $null
 
