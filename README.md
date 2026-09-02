@@ -22,7 +22,7 @@ Ein Spotify-Konto wird **nicht** gebraucht. spotdl nutzt Spotify nur als Datenba
 | `8` | Werkzeuge aktualisieren | spotdl und yt-dlp per pip auffrischen |
 | `9` | Einstellungen | Format, Bitrate, Namensschema, Nachtmodus … |
 | `A` | Archiv | Bereits geladenes einsehen und zuruecksetzen |
-| `U` | USB-Stick | Alben auf einen Stick kopieren, optional Zufallsmix |
+| `U` | USB-Stick | Alben **oder eine gemerkte Playlist** auf einen Stick kopieren |
 | `W` | Warteschlange | Auftraege sammeln und unbeaufsichtigt abarbeiten |
 | `B` | Bestandsabgleich | Was fehlt aus gespeicherten Diskografien? |
 | `P` | Sammlung pruefen | Download-Reste und auffaellig kleine Dateien finden |
@@ -41,6 +41,20 @@ Bei drei Menuepunkten ist auf den ersten Blick nicht klar, welcher der richtige 
 | einen Bandnamen und will die ganze Diskografie durchsehen | `5` |
 | einen YouTube-Kanal mit kuratierten Playlists (z.B. "Tiny Desk Concerts") | `4` |
 | einen YouTube-"Kuenstler – Thema"-Kanal (automatisch erzeugt) | `5`, nicht `4` — siehe unten |
+
+---
+
+## Playlists: gemerkt statt kopiert
+
+Eine Spotify-Playlist quer durch verschiedene Kuenstler stellt vor ein Problem: Die Titel gehoeren in ihre Album-Ordner, aber die Zusammenstellung soll erhalten bleiben. Beides gleichzeitig ginge nur mit doppelten Dateien.
+
+YT-Schakal loest das anders:
+
+1. **Beim Laden** (Menuepunkt `3`, Spotify-Playlist-Link) fragt das Script, ob die Playlist gemerkt werden soll. Gespeichert wird nur die Songliste — Interpret, Titel, Position — unter `data\playlists\`. **Keine Dateipfade**, damit die Sammlung spaeter umsortiert oder neu getaggt werden kann, ohne dass die Playlist kaputtgeht.
+2. **Die Musik selbst** landet ganz normal album-sortiert in der Sammlung. Nichts liegt doppelt.
+3. **Beim USB-Export** (Menuepunkt `U`) laesst sich eine gemerkte Playlist auswaehlen. Das Script sucht die Titel in der Sammlung zusammen und kopiert sie flach und durchnummeriert in einen eigenen Ordner auf den Stick — im Autoradio also eine fertige Playlist.
+
+Titel, die in der Playlist stehen aber nicht in der Sammlung liegen, werden vor dem Kopieren namentlich aufgelistet. Ebenso Faelle, bei denen mehrere Dateien auf denselben Titel passen ("Intro", "Home") — dort waehlt das Script den ersten Treffer und sagt dir, welchen.
 
 ---
 
@@ -92,10 +106,13 @@ YT-Schakal/
     ├── warteschlange.txt
     ├── log.txt
     ├── sync/
-    └── diskografie/
+    ├── diskografie/
+    └── playlists/      gemerkte Playlists (Songlisten, keine Audiodateien)
 ```
 
 Der Zielordner ist standardmaessig **relativ** — der ganze Ordner bleibt damit weitergabefaehig. Ueber Einstellungen laesst sich jederzeit ein absoluter Pfad setzen, etwa `D:\Musik`.
+
+Wer von einer Version vor 1.3.0 aktualisiert: Beim ersten Start wandern die alten Dateien automatisch nach `data\`, `liste.txt` wird zu `wunschliste.txt`. Nichts geht verloren.
 
 ---
 
@@ -116,6 +133,8 @@ Alles unter Menuepunkt `9`, gespeichert in `data/einstellungen.json`.
 | Playlist-Unterordner | ja | je Playlist ein eigener Ordner |
 | Nachtmodus | nein | langsamer, dafuer keine Bot-Pruefung |
 | Ausfuehrliches Log | nein | jede Zeile von spotdl und yt-dlp |
+
+Unsinnige Werte in der JSON werden beim Start erkannt, auf den Standard zurueckgesetzt und gemeldet.
 
 ### `{album-artist}` statt `{artist}`
 
@@ -138,6 +157,10 @@ Reduziert auf zwei gleichzeitige Anfragen und legt 3–10 Sekunden Pause zwische
 **Singles und EPs sind bei Spotify kein „Album".** Der Diskografie-Abruf fragt deshalb getrennt nach. Wer verneint, bekommt nur regulaere Alben — EPs fehlen dann.
 
 **Der Bestandsabgleich vergleicht Ordnernamen.** Ein von Hand umbenannter Ordner erscheint faelschlich als fehlend.
+
+**Die Playlist-Zuordnung beim USB-Export nutzt Dateiname und Ordnerstruktur**, nicht die eingebetteten Tags. Beim Standardschema funktioniert das; bei abweichendem Schema oder umbenannten Ordnern koennen Titel faelschlich als fehlend gelten. Sie werden dann aufgelistet, nicht stillschweigend uebergangen.
+
+**Einzelne Titel koennen in Playlists fehlen, ohne dass es auffaellt.** yt-dlp laeuft mit `--ignore-errors`, damit ein gesperrtes oder geloeschtes Video nicht den ganzen Download abbricht. Eine Vollstaendigkeitswarnung gibt es noch nicht.
 
 **„Sign in to confirm you're not a bot"** bedeutet, dass YouTube die IP voruebergehend gesperrt hat. Meist nach einigen Stunden vorbei. Dagegen hilft der Nachtmodus.
 
