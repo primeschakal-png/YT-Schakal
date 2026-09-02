@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YT-Schakal – Der Menü-DL für spotdl & yt-dlp</title>
+<meta name="description" content="YT-Schakal ist ein menügesteuerter Downloader für spotdl und yt-dlp. Spotify, YouTube, Playlists, Diskografien – alles in einem Tool.">
+<meta name="theme-color" content="#0d1117">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐺</text></svg>">
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-2: #161b22;
+    --bg-3: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #f0a500;
+    --accent-2: #ffa500;
+    --accent-glow: rgba(240, 165, 0, 0.15);
+    --success: #3fb950;
+    --danger: #f85149;
+    --warn: #d29922;
+    --cyan: #58a6ff;
+    --code-bg: #0d1117;
+    --radius: 10px;
+    --max-w: 1150px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ---------- NAVIGATION ---------- */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13, 17, 23, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.9rem 1.5rem;
+  }
+  .nav-inner {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .logo {
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+  }
+  .logo-icon { font-size: 1.5rem; }
+  .nav-links {
+    display: flex;
+    gap: 1.5rem;
+    list-style: none;
+    flex-wrap: wrap;
+  }
+  .nav-links a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--accent); }
+
+  /* ---------- HERO ---------- */
+  .hero {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 5rem 1.5rem 3rem;
+    text-align: center;
+    position: relative;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    z-index: -1;
+    pointer-events: none;
+  }
+  .badge {
+    display: inline-block;
+    padding: 0.35rem 0.9rem;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+  }
+  .hero h1 {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 50%, #fff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1.1;
+  }
+  .hero .tagline {
+    font-size: 1.25rem;
+    color: var(--text-dim);
+    max-width: 700px;
+    margin: 0 auto 2.5rem;
+  }
+  .cta-group {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1.6rem;
+    border-radius: var(--radius);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    box-shadow: 0 4px 20px var(--accent-glow);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px var(--accent-glow);
+  }
+  .btn-secondary {
+    background: var(--bg-2);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn-secondary:hover {
+    background: var(--bg-3);
+    border-color: var(--accent);
+  }
+
+  /* ---------- SECTIONS ---------- */
+  section {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+  }
+  .section-title {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .section-subtitle {
+    color: var(--text-dim);
+    margin-bottom: 2.5rem;
+    font-size: 1.05rem;
+  }
+
+  /* ---------- FEATURES GRID ---------- */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+  }
+  .feature-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.4s;
+  }
+  .feature-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+  }
+  .feature-card:hover::before { transform: translateX(0); }
+  .feature-icon {
+    font-size: 1.8rem;
+    margin-bottom: 0.75rem;
+    display: inline-block;
+  }
+  .feature-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+  .feature-card p {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+  }
+  .feature-card .hint {
+    margin-top: 0.75rem;
+    font-size: 0.82rem;
+    color: var(--cyan);
+    font-family: "SF Mono", Consolas, monospace;
+  }
+
+  /* ---------- TERMINAL MOCKUP ---------- */
+  .terminal {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    margin-bottom: 1.5rem;
+  }
+  .terminal-header {
+    background: var(--bg-2);
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+  }
+  .dot-r { background: #f85149; }
+  .dot-y { background: #f0a500; }
+  .dot-g { background: #3fb950; }
+  .terminal-title {
+    margin-left: 0.75rem;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-family: "SF Mono", Consolas, monospace;
+  }
+  .terminal-body {
+    padding: 1.25rem 1.5rem;
+    font-family: "Cascadia Code", "SF Mono", Consolas, "Courier New", monospace;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text);
+    overflow-x: auto;
+    white-space: pre;
+    letter-spacing: 0;
+  }
+  .t-prompt { color: var(--accent); }
+  .t-cmd { color: #79c0ff; }
+  .t-str { color: #a5d6ff; }
+  .t-ok { color: var(--success); }
+  .t-dim { color: var(--text-dim); }
+  .t-warn { color: var(--warn); }
+  .t-err { color: var(--danger); }
+  .t-title { color: var(--cyan); }
+  .t-sel { background: #6e7681; color: #000; padding: 0 2px; }
+
+  .terminal-caption {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-top: -0.5rem;
+    margin-bottom: 2rem;
+    font-style: italic;
+  }
+
+  /* ---------- INSTALL ---------- */
+  .install-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .step {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    position: relative;
+  }
+  .step-num {
+    position: absolute;
+    top: -14px; left: 16px;
+    background: var(--accent);
+    color: #000;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.9rem;
+  }
+  .step h4 {
+    margin: 0.5rem 0 0.75rem;
+    font-size: 1.05rem;
+  }
+  .step p {
+    color: var(--text-dim);
+    font-size: 0.92rem;
+    margin-bottom: 0.75rem;
+  }
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.82rem;
+    color: #a5d6ff;
+    overflow-x: auto;
+    position: relative;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 6px; right: 6px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---------- MENU TABLE ---------- */
+  .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 0.75rem;
+  }
+  .menu-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: all 0.2s;
+  }
+  .menu-item:hover {
+    border-color: var(--accent);
+    background: var(--bg-3);
+  }
+  .menu-key {
+    background: var(--accent);
+    color: #000;
+    font-weight: 800;
+    font-family: "SF Mono", Consolas, monospace;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    min-width: 32px;
+    text-align: center;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+  .menu-text {
+    flex: 1;
+  }
+  .menu-text strong {
+    display: block;
+    font-size: 0.98rem;
+    margin-bottom: 0.2rem;
+  }
+  .menu-text span {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+
+  /* ---------- SETTINGS TABLE ---------- */
+  .settings-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .settings-table th,
+  .settings-table td {
+    padding: 0.85rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.92rem;
+  }
+  .settings-table th {
+    background: var(--bg-3);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .settings-table tr:last-child td { border-bottom: none; }
+  .settings-table td:first-child {
+    font-family: "SF Mono", Consolas, monospace;
+    color: var(--cyan);
+    white-space: nowrap;
+  }
+  .settings-table td:nth-child(2) { color: var(--text-dim); }
+
+  /* ---------- INFO BOX ---------- */
+  .info-box {
+    background: linear-gradient(135deg, var(--accent-glow), transparent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin: 2rem 0;
+  }
+  .info-box h3 {
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+  .info-box p { color: var(--text-dim); }
+  .info-box ul {
+    margin-top: 0.75rem;
+    padding-left: 1.25rem;
+    color: var(--text-dim);
+  }
+  .info-box li { margin-bottom: 0.3rem; }
+  .info-box code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: #a5d6ff;
+  }
+
+  .warn-box {
+    background: rgba(210, 153, 34, 0.08);
+    border: 1px solid var(--warn);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+  }
+  .warn-box h4 {
+    color: var(--warn);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .warn-box p { color: var(--text-dim); font-size: 0.95rem; }
+
+  /* ---------- FAQ ---------- */
+  .faq-item {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .faq-item h4 {
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+  }
+  .faq-item p {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+  }
+
+  /* ---------- FOOTER ---------- */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-top: 3rem;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  .footer-heart { color: var(--danger); }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 640px) {
+    .nav-links { display: none; }
+    .hero { padding: 3rem 1rem 2rem; }
+    section { padding: 2.5rem 1rem; }
+    .section-title { font-size: 1.6rem; }
+    .terminal-body { font-size: 0.72rem; padding: 0.75rem; }
+  }
+
+  /* ---------- ANIMATIONS ---------- */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .hero > * { animation: fadeUp 0.6s ease-out backwards; }
+  .hero > *:nth-child(1) { animation-delay: 0.1s; }
+  .hero > *:nth-child(2) { animation-delay: 0.2s; }
+  .hero > *:nth-child(3) { animation-delay: 0.3s; }
+  .hero > *:nth-child(4) { animation-delay: 0.4s; }
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="logo">
+      <span class="logo-icon">🐺</span>
+      <span>YT-Schakal</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#preview">Vorschau</a></li>
+      <li><a href="#menu">Menü</a></li>
+      <li><a href="#install">Installation</a></li>
+      <li><a href="#settings">Einstellungen</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="https://github.com" target="_blank">GitHub ↗</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <span class="badge">🎵 v1.3.0 · PowerShell · Open Source · Deutsch</span>
+  <h1>YT-Schakal</h1>
+  <p class="tagline">
+    Der menügesteuerte Downloader für <strong>spotdl</strong> und <strong>yt-dlp</strong>.
+    Spotify, YouTube, Diskografien, Playlists – alles in einem Tool.
+    Keine Kommandozeile, keine JSON-Handarbeit – einfach Menüpunkt wählen.
+  </p>
+  <div class="cta-group">
+    <a href="#install" class="btn btn-primary">⚡ Schnellstart</a>
+    <a href="#preview" class="btn btn-secondary">👀 Vorschau ansehen</a>
+    <a href="https://github.com" class="btn btn-secondary" target="_blank">⭐ Auf GitHub</a>
+  </div>
+</header>
+
+<!-- ============ FEATURES ============ -->
+<section id="features">
+  <h2 class="section-title">Was der Schakal kann</h2>
+  <p class="section-subtitle">Ein Werkzeug für alle Fälle – von der Einzelsuche bis zum kompletten Künstlerkatalog.</p>
+
+  <div class="features">
+    <div class="feature-card">
+      <div class="feature-icon">🔍</div>
+      <h3>[1] Einzelsuche</h3>
+      <p>Titel oder Interpreten eingeben – der Schakal sucht das beste Ergebnis auf Spotify und lädt es mit sauberen Tags.</p>
+      <div class="hint">→ spotdl</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📋</div>
+      <h3>[2] Wunschliste</h3>
+      <p>Eine Textdatei mit allen Wünschen füllen – der Schakal arbeitet sie komplett ab. Erledigtes wird übersprungen.</p>
+      <div class="hint">wunschliste.txt</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔗</div>
+      <h3>[3] Link laden</h3>
+      <p>Spotify, YouTube, SoundCloud, Bandcamp – einfach URL rein. Playlists und Alben werden erkannt.</p>
+      <div class="hint">→ spotdl oder yt-dlp</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📺</div>
+      <h3>[4] Kanal-Playlists</h3>
+      <p>YouTube-Kanal durchsuchen, Playlists per Pfeiltasten auswählen und in einem Rutsch laden. Inkl. NPR Tiny Desk, Label-Kanälen etc.</p>
+      <div class="hint">@handle oder URL</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💿</div>
+      <h3>[5] Diskografie</h3>
+      <p>Komplette Albenliste eines Künstlers per Spotify-Link holen, Alben mit Pfeiltasten auswählen und selektiv laden.</p>
+      <div class="hint">open.spotify.com/artist/...</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔄</div>
+      <h3>[6] Playlist-Sync</h3>
+      <p>Ordner mit Spotify-Playlist abgleichen – fehlende Titel kommen, überflüssige gehen. Mehrere Playlists gleichzeitig.</p>
+      <div class="hint">⚠ löscht Dateien</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🏷️</div>
+      <h3>[7] Tags reparieren</h3>
+      <p>Metadaten vorhandener Dateien automatisch neu schreiben – wenn Cover oder Interpret fehlen.</p>
+      <div class="hint">spotdl meta</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🚗</div>
+      <h3>[U] USB-Stick</h3>
+      <p>Alben auf den Stick fürs Autoradio kopieren – optional mit Zufallsmix und M3U-Playlist. FAT32-Warnung inklusive.</p>
+      <div class="hint">_Fahrmix\ + _Fahrmix.m3u</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌙</div>
+      <h3>Nachtmodus</h3>
+      <p>Schonendes Tempo mit Pausen – verhindert YouTube-Bot-Prüfungen bei großen Diskografie-Läufen.</p>
+      <div class="hint">--sleep-interval 3-10</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🗃️</div>
+      <h3>[A] Archiv</h3>
+      <p>Bereits geladene Titel merken – doppelte Downloads gehören der Vergangenheit an. Getrennt für spotdl und yt-dlp.</p>
+      <div class="hint">archiv.txt + archiv-yt.txt</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔧</div>
+      <h3>[B] Bestandsabgleich</h3>
+      <p>Zeigt fehlende und unvollständige Alben aus gespeicherten Diskografien. Lücken direkt in die Warteschlange legen.</p>
+      <div class="hint">Ordner vs. Spotify</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧹</div>
+      <h3>[P] Sammlung prüfen</h3>
+      <p>Findet Download-Reste (.part, .ytdl), leere Dateien und verdächtig kleine Audio-Dateien.</p>
+      <div class="hint">pruefbericht.txt</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⏳</div>
+      <h3>[W] Warteschlange</h3>
+      <p>Gesammelte Aufträge aus Diskografie, Kanal-Playlists oder Link-Modus am Stück abarbeiten. Optional mit Shutdown.</p>
+      <div class="hint">shutdown /s /t 120</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚙️</div>
+      <h3>[9] Einstellungen</h3>
+      <p>Zielordner, Format, Bitrate, Namensschema, Threads, Lyrics, Archiv, Nachtmodus – alles per Menü.</p>
+      <div class="hint">einstellungen.json</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TERMINAL PREVIEW: HAUPTMENÜ ============ -->
+<section id="preview">
+  <h2 class="section-title">So sieht's aus</h2>
+  <p class="section-subtitle">Klare Menüs, farbige Ausgaben, keine Überraschungen – exakt wie im PowerShell-Fenster.</p>
+
+  <div class="terminal">
+    <div class="terminal-header">
+      <span class="dot dot-r"></span>
+      <span class="dot dot-y"></span>
+      <span class="dot dot-g"></span>
+      <span class="terminal-title">PowerShell – YT-Schakal · Hauptmenü</span>
+    </div>
+    <div class="terminal-body"><span class="t-dim">===========================================================================</span>
+<span class="t-title">   Y T - S C H A K A L   v1.3.0</span>
+<span class="t-dim">===========================================================================</span>
+<span class="t-dim">   Ziel: C:\Users\Musik\Musik     Format: mp3 @ 192k</span>
+<span class="t-dim">===========================================================================</span>
+
+     <span class="t-cmd">[1]</span>  Einzelsuche          - Titel eingeben, wird gesucht und geladen
+     <span class="t-cmd">[2]</span>  Wunschliste          - alle Einträge aus wunschliste.txt
+     <span class="t-cmd">[3]</span>  Link laden           - Spotify, YouTube, Soundcloud, Bandcamp
+     <span class="t-cmd">[4]</span>  Kanal-Playlists      - YouTube-Kanal durchsuchen und auswählen
+     <span class="t-title">[5]</span>  <span class="t-title">Diskografie          - Alben eines Künstlers auswählen</span>
+     <span class="t-cmd">[6]</span>  Playlist-Sync        - Ordner mit Spotify-Playlist gleichhalten
+     <span class="t-cmd">[7]</span>  Tags reparieren      - Metadaten vorhandener Dateien erneuern
+     <span class="t-cmd">[8]</span>  Werkzeuge aktualisieren
+     <span class="t-cmd">[9]</span>  Einstellungen
+     <span class="t-cmd">[A]</span>  Archiv
+     <span class="t-cmd">[U]</span>  USB-Stick bestücken  - Alben auf den Stick fürs Auto
+     <span class="t-cmd">[W]</span>  Warteschlange        - gesammelte Aufträge abarbeiten
+     <span class="t-title">[B]</span>  <span class="t-title">Bestandsabgleich     - was fehlt aus gespeicherten Diskografien?</span>
+     <span class="t-title">[P]</span>  <span class="t-title">Sammlung prüfen      - Reste und auffällig kleine Dateien</span>
+
+     <span class="t-warn">[0]</span>  Beenden
+
+<span class="t-dim">---------------------------------------------------------------------------</span>
+<span class="t-prompt">  Auswahl:</span> <span class="t-str">5</span></div>
+  </div>
+  <p class="terminal-caption">↑ Das Hauptmenü – genau so erscheint es beim Start.</p>
+
+  <!-- ============ TERMINAL: DISKOGRAFIE-AUSWAHL ============ -->
+  <div class="terminal">
+    <div class="terminal-header">
+      <span class="dot dot-r"></span>
+      <span class="dot dot-y"></span>
+      <span class="dot dot-g"></span>
+      <span class="terminal-title">Menüpunkt 5 · Diskografie – Alben auswählen</span>
+    </div>
+    <div class="terminal-body"><span class="t-dim">===========================================================================</span>
+<span class="t-title">  Diskografie - Alben auswählen</span>
+<span class="t-dim">===========================================================================</span>
+<span class="t-ok">  47 Songs in 6 Alben/Veröffentlichungen.</span>
+<span class="t-ok">  6 von 6 markiert</span>
+
+<span class="t-sel"> &gt; [x]  The Dark Side of the Moon (1973)          10 Titel</span>
+   [x]  Wish You Were Here (1975)                 9 Titel
+   [x]  Animals (1977)                            5 Titel
+   [x]  The Wall (1979)                          23 Titel
+   [x]  The Final Cut (1983)                     12 Titel
+   [x]  A Momentary Lapse of Reason (1987)       11 Titel
+
+<span class="t-dim">---------------------------------------------------------------------------</span>
+  Pfeile = bewegen   Space = an/aus   A = alle   K = keine   I = umkehren
+  Enter = starten    Esc = abbrechen</div>
+  </div>
+  <p class="terminal-caption">↑ Interaktive Auswahl mit Pfeiltasten, Space und Enter.</p>
+
+  <!-- ============ TERMINAL: SELBSTTEST ============ -->
+  <div class="terminal">
+    <div class="terminal-header">
+      <span class="dot dot-r"></span>
+      <span class="dot dot-y"></span>
+      <span class="dot dot-g"></span>
+      <span class="terminal-title">Selbsttest beim Start</span>
+    </div>
+    <div class="terminal-body"><span class="t-dim">===========================================================================</span>
+<span class="t-title">  Selbsttest</span>
+<span class="t-dim">===========================================================================</span>
+<span class="t-ok">  Python      : Python 3.12.4</span>
+<span class="t-ok">  spotdl      : 4.2.10</span>
+<span class="t-ok">  yt-dlp      : 2025.09.01</span>
+<span class="t-ok">  ffmpeg      : von spotdl mitgebracht</span>
+<span class="t-ok">  Deno        : 2.0.4</span>
+
+<span class="t-dim">---------------------------------------------------------------------------</span>
+<span class="t-prompt">  Auswahl:</span></div>
+  </div>
+  <p class="terminal-caption">↑ Alle Voraussetzungen grün – der Schakal ist startklar.</p>
+
+  <!-- ============ TERMINAL: USB-STICK ============ -->
+  <div class="terminal">
+    <div class="terminal-header">
+      <span class="dot dot-r"></span>
+      <span class="dot dot-y"></span>
+      <span class="dot dot-g"></span>
+      <span class="terminal-title">Menüpunkt U · USB-Stick bestücken</span>
+    </div>
+    <div class="terminal-body"><span class="t-dim">===========================================================================</span>
+<span class="t-title">  USB-Stick bestücken</span>
+<span class="t-dim">===========================================================================</span>
+  Kopiert ausgewählte Alben aus deiner Sammlung auf einen Stick.
+  Ordner = Alben im Autoradio-Browser. Optional ein Mix-Ordner.
+
+<span class="t-title">  Gefundene Sticks:</span>
+
+    <span class="t-cmd">[1]</span>  E:\  (MUSIC_STICK)  FAT32  -  12,4 von 14,9 GB frei
+
+<span class="t-prompt">  Nummer (Enter bricht ab):</span> <span class="t-str">1</span>
+
+  Lese die Sammlung ein ...
+
+<span class="t-dim">===========================================================================</span>
+<span class="t-title">  Zusammenfassung</span>
+<span class="t-dim">===========================================================================</span>
+  8 Alben, 94 Titel, 712 MB
+
+<span class="t-prompt">  Zusätzlich einen Mix-Ordner mit Zufallstiteln anlegen? (j/n)</span> <span class="t-str">j</span>
+<span class="t-prompt">  Wie viele Titel? [50]</span> <span class="t-str">50</span>
+
+<span class="t-dim">---------------------------------------------------------------------------</span>
+<span class="t-title">  Bilanz</span>
+<span class="t-dim">---------------------------------------------------------------------------</span>
+<span class="t-ok">  Kopiert       : 144</span>
+<span class="t-dim">  Übersprungen  : 0  (waren schon drauf)</span>
+<span class="t-ok">  Fehler        : 0</span>
+<span class="t-dim">  Dauer         : 00:01:42</span>
+
+<span class="t-warn">  Stick über "Hardware sicher entfernen" auswerfen, sonst drohen</span>
+<span class="t-warn">  halbe Dateien - FAT32 hat kein Sicherheitsnetz.</span></div>
+  </div>
+  <p class="terminal-caption">↑ Inkl. Mix-Ordner und M3U-Playlist fürs Autoradio.</p>
+
+  <!-- ============ TERMINAL: BESTANDSABGLEICH ============ -->
+  <div class="terminal">
+    <div class="terminal-header">
+      <span class="dot dot-r"></span>
+      <span class="dot dot-y"></span>
+      <span class="dot dot-g"></span>
+      <span class="terminal-title">Menüpunkt B · Bestandsabgleich</span>
+    </div>
+    <div class="terminal-body"><span class="t-dim">===========================================================================</span>
+<span class="t-title">  Ergebnis</span>
+<span class="t-dim">===========================================================================</span>
+<span class="t-ok">  Vollständig    : 41</span>
+<span class="t-warn">  Unvollständig  : 3</span>
+<span class="t-warn">  Fehlt ganz     : 2</span>
+
+<span class="t-warn">  Unvollständig (vorhanden / erwartet):</span>
+<span class="t-dim">     7 /  12  Pink Floyd - The Wall</span>
+<span class="t-dim">     9 / 11  Radiohead - Kid A Mnesia</span>
+<span class="t-dim">     3 /  5  Tool - Ænima</span>
+
+<span class="t-warn">  Fehlt komplett:</span>
+<span class="t-dim">    10 Titel  Pink Floyd - The Final Cut</span>
+<span class="t-dim">     8 Titel  Led Zeppelin - Houses of the Holy</span>
+
+<span class="t-dim">  Hinweis: Der Abgleich vergleicht Ordnernamen mit Albumtiteln.</span>
+<span class="t-dim">  Umbenannte oder verschobene Ordner erscheinen fälschlich als fehlend.</span>
+
+<span class="t-prompt">  Lücken auswählen und in die Warteschlange legen? (j/n)</span> <span class="t-str">j</span></div>
+  </div>
+  <p class="terminal-caption">↑ Zeigt, was aus gespeicherten Diskografien noch fehlt.</p>
+</section>
+
+<!-- ============ MENU DETAILS ============ -->
+<section id="menu">
+  <h2 class="section-title">Das Menü im Detail</h2>
+  <p class="section-subtitle">Alle 14 Menüpunkte auf einen Blick – was jeder einzelne macht und welches Werkzeug dahintersteckt.</p>
+
+  <div class="menu-grid">
+    <div class="menu-item">
+      <span class="menu-key">1</span>
+      <div class="menu-text">
+        <strong>Einzelsuche</strong>
+        <span>Titel eingeben, bestes Ergebnis via spotdl laden. Archiv prüft vorher.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">2</span>
+      <div class="menu-text">
+        <strong>Wunschliste</strong>
+        <span>Alle Einträge aus <code style="color:var(--cyan)">wunschliste.txt</code> abarbeiten. Bilanz am Ende.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">3</span>
+      <div class="menu-text">
+        <strong>Link laden</strong>
+        <span>Spotify → spotdl, YouTube/SC/Bandcamp → yt-dlp. Sofort oder in Warteschlange.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">4</span>
+      <div class="menu-text">
+        <strong>Kanal-Playlists</strong>
+        <span>YouTube-Kanal per @handle oder URL durchsuchen. Playlists interaktiv auswählen.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">5</span>
+      <div class="menu-text">
+        <strong>Diskografie</strong>
+        <span>Spotify-Künstlerlink → Albenliste → mit Pfeiltasten auswählen → laden.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">6</span>
+      <div class="menu-text">
+        <strong>Playlist-Sync</strong>
+        <span>Ordner mit Spotify-Playlist gleichhalten. <span style="color:var(--warn)">Löschen-Modus!</span></span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">7</span>
+      <div class="menu-text">
+        <strong>Tags reparieren</strong>
+        <span>Metadaten vorhandener Dateien via <code style="color:var(--cyan)">spotdl meta</code> neu schreiben.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">8</span>
+      <div class="menu-text">
+        <strong>Werkzeuge aktualisieren</strong>
+        <span>spotdl und yt-dlp per pip auf neuesten Stand heben.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">9</span>
+      <div class="menu-text">
+        <strong>Einstellungen</strong>
+        <span>Zielordner, Format, Bitrate, Schema, Threads, Nachtmodus, Log.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">A</span>
+      <div class="menu-text">
+        <strong>Archiv</strong>
+        <span>Letzte Einträge zeigen, spotdl- oder YouTube-Archiv leeren.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">U</span>
+      <div class="menu-text">
+        <strong>USB-Stick bestücken</strong>
+        <span>Alben aufs Auto-Radio kopieren. Optional Mix-Ordner + M3U.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">W</span>
+      <div class="menu-text">
+        <strong>Warteschlange</strong>
+        <span>Gesammelte Aufträge abarbeiten. Optional mit Shutdown nach Ende.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">B</span>
+      <div class="menu-text">
+        <strong>Bestandsabgleich</strong>
+        <span>Zeigt fehlende Alben aus Diskografien. Lücken direkt in Queue legen.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <span class="menu-key">P</span>
+      <div class="menu-text">
+        <strong>Sammlung prüfen</strong>
+        <span>Findet .part-Reste, leere Dateien und verdächtig kleine Audio-Dateien.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section id="settings">
+  <h2 class="section-title">Einstellungen im Detail</h2>
+  <p class="section-subtitle">Alle Parameter, die sich unter Menüpunkt [9] anpassen lassen – mit Standardwerten.</p>
+
+  <table class="settings-table">
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Beschreibung</th>
+        <th>Standard</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Zielordner</td>
+        <td>Wo landen die Downloads? Relativ zum Script oder absolut.</td>
+        <td><code style="color:var(--cyan)">Musik</code></td>
+      </tr>
+      <tr>
+        <td>Format</td>
+        <td>Audioformat. Erlaubt: mp3, flac, opus, m4a, ogg, wav.</td>
+        <td><code style="color:var(--cyan)">mp3</code></td>
+      </tr>
+      <tr>
+        <td>Bitrate</td>
+        <td>Ziel-Bitrate. YouTube liefert real 128–160 kbps – höhere Werte bringen nichts.</td>
+        <td><code style="color:var(--cyan)">192k</code></td>
+      </tr>
+      <tr>
+        <td>Namensschema</td>
+        <td>Ordner- und Dateinamen. Platzhalter: <code style="color:var(--cyan)">{album-artist}</code>, <code style="color:var(--cyan)">{album}</code>, <code style="color:var(--cyan)">{track-number}</code>, <code style="color:var(--cyan)">{title}</code>.</td>
+        <td><code style="color:var(--cyan)">{album-artist}/{album}/{track-number} - {title}.{output-ext}</code></td>
+      </tr>
+      <tr>
+        <td>Threads</td>
+        <td>Parallele Downloads (1–8). Im Nachtmodus immer 2.</td>
+        <td><code style="color:var(--cyan)">4</code></td>
+      </tr>
+      <tr>
+        <td>LyricsHolen</td>
+        <td>Liedtexte von Genius und Musixmatch einbetten.</td>
+        <td><code style="color:var(--success)">ja</code></td>
+      </tr>
+      <tr>
+        <td>ArchivNutzen</td>
+        <td>Bereits geladene Titel merken und überspringen.</td>
+        <td><code style="color:var(--success)">ja</code></td>
+      </tr>
+      <tr>
+        <td>NurVerifiziert</td>
+        <td>Nur verifizierte Spotify-Treffer akzeptieren.</td>
+        <td><code style="color:var(--danger)">nein</code></td>
+      </tr>
+      <tr>
+        <td>PlaylistOrdner</td>
+        <td>YouTube-Playlists in eigenen Unterordner speichern.</td>
+        <td><code style="color:var(--success)">ja</code></td>
+      </tr>
+      <tr>
+        <td>Nachtmodus</td>
+        <td>Langsam und schonend – verhindert YouTube-Bot-Prüfungen.</td>
+        <td><code style="color:var(--danger)">nein</code></td>
+      </tr>
+      <tr>
+        <td>LogAusfuehrlich</td>
+        <td>Jede Zeile von spotdl/yt-dlp ins Log schreiben.</td>
+        <td><code style="color:var(--danger)">nein</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ INSTALL ============ -->
+<section id="install">
+  <h2 class="section-title">Installation</h2>
+  <p class="section-subtitle">In drei Schritten einsatzbereit – unter Windows.</p>
+
+  <div class="install-steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h4>Python installieren</h4>
+      <p>Python 3.11 oder neuer von <a href="https://www.python.org" target="_blank" style="color:var(--accent)">python.org</a> laden. Beim Setup <strong>„Add python.exe to PATH"</strong> anhaken!</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h4>Werkzeuge installieren</h4>
+      <p>spotdl und yt-dlp per pip einspielen:</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">kopieren</button>
+pip install spotdl yt-dlp</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h4>YT-Schakal starten</h4>
+      <p>Repository klonen und <code style="color:var(--accent)">YT-Schakal.bat</code> doppelklicken:</p>
+      <div class="code-block">
+        <button class="copy-btn" onclick="copyCode(this)">kopieren</button>
+git clone https://github.com/DEIN-USER/yt-schakal.git
+cd yt-schakal
+.\YT-Schakal.bat</div>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <h3>💡 Empfohlen: ffmpeg & Deno</h3>
+    <p>Für beste Ergebnisse sollten auch ffmpeg und Deno installiert sein:</p>
+    <ul>
+      <li><strong>ffmpeg:</strong> <code>spotdl --download-ffmpeg</code> (oder im Systempfad)</li>
+      <li><strong>Deno:</strong> <code>winget install DenoLand.Deno</code> – verbessert YouTube-Formate deutlich, sonst liefert YouTube ohne JS-Laufzeit nur Teilformate</li>
+    </ul>
+  </div>
+
+  <div class="warn-box">
+    <h4>⚠️ Python-Version beachten</h4>
+    <p>spotdl hat den Support für Python 3.10 eingestellt. Der Schakal warnt beim Start, wenn eine veraltete Version erkannt wird. Empfohlen: <strong>Python 3.12</strong>.</p>
+  </div>
+</section>
+
+<!-- ============ STRUCTURE ============ -->
+<section>
+  <h2 class="section-title">Ordnerstruktur</h2>
+  <p class="section-subtitle">Übersichtlich aufgeteilt – Nutzer-Dateien vorne, internes hinten. Ab v1.3 alles Interne in <code style="color:var(--cyan)">data\</code>.</p>
+
+  <div class="terminal">
+    <div class="terminal-header">
+      <span class="dot dot-r"></span>
+      <span class="dot dot-y"></span>
+      <span class="dot dot-g"></span>
+      <span class="terminal-title">yt-schakal/</span>
+    </div>
+    <div class="terminal-body"><span class="t-cmd">YT-Schakal.ps1</span>      <span class="t-dim">← das Script (PowerShell)</span>
+<span class="t-cmd">YT-Schakal.bat</span>      <span class="t-dim">← Starter (Doppelklick)</span>
+<span class="t-str">wunschliste.txt</span>     <span class="t-dim">← deine Songwünsche (eine Zeile pro Eintrag)</span>
+<span class="t-ok">Musik\</span>              <span class="t-dim">← hier landen die Downloads (per Einst. änderbar)</span>
+<span class="t-dim">data\</span>
+  <span class="t-dim">einstellungen.json</span>  <span class="t-dim">← gespeicherte Konfiguration</span>
+  <span class="t-dim">archiv.txt</span>          <span class="t-dim">← bereits geladene spotdl-Suchen</span>
+  <span class="t-dim">archiv-yt.txt</span>       <span class="t-dim">← bereits geladene YouTube-Videos</span>
+  <span class="t-dim">warteschlange.txt</span>   <span class="t-dim">← offene Aufträge (Typ|Beschreibung|Abfrage)</span>
+  <span class="t-dim">log.txt</span>             <span class="t-dim">← Protokoll aller Läufe (Rotation ab 1 MB)</span>
+  <span class="t-dim">sync\</span>               <span class="t-dim">← Sync-Dateien für Playlists (*.spotdl)</span>
+  <span class="t-dim">diskografie\</span>        <span class="t-dim">← zwischengespeicherte Künstlerkataloge</span></div>
+  </div>
+
+  <div class="info-box">
+    <h3>🔄 Migration von älteren Versionen</h3>
+    <p>Beim ersten Start nach einem Update auf v1.3 werden <code>einstellungen.json</code>, <code>archiv.txt</code>, <code>archiv-yt.txt</code>, <code>warteschlange.txt</code>, <code>log.txt</code>, <code>sync\</code> und <code>diskografie\</code> automatisch aus dem Hauptordner nach <code>data\</code> verschoben. Einstellungen, Archiv und Zwischenspeicher bleiben erhalten.</p>
+    <p style="margin-top:0.5rem">Ebenso wird eine alte <code>liste.txt</code> automatisch in <code>wunschliste.txt</code> umbenannt.</p>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <h2 class="section-title">Häufige Fragen</h2>
+  <p class="section-subtitle">Antworten auf die Dinge, die beim ersten Start auftauchen.</p>
+
+  <div class="faq-item">
+    <h4>„YouTube verlangt eine Bot-Bestätigung" – was tun?</h4>
+    <p>Nachtmodus unter [9] einschalten. Der Schakal reduziert dann die Threads auf 2 und baut 3–10 Sekunden Pause zwischen die Titel. Große Diskografien dauern länger, laufen dafür durch.</p>
+  </div>
+  <div class="faq-item">
+    <h4>„Geht plötzlich nicht mehr" – obwohl gestern noch alles lief?</h4>
+    <p>Meistens hat YouTube etwas geändert und yt-dlp ist veraltet. Menüpunkt [8] „Werkzeuge aktualisieren" löst das in 90% der Fälle.</p>
+  </div>
+  <div class="faq-item">
+    <h4>Wo finde ich das Log, wenn etwas schiefging?</h4>
+    <p>Unter <code style="color:var(--cyan)">data\log.txt</code>. Ab 1 MB wird automatisch rotiert (nach <code>log.alt.txt</code>). Für Fehlersuche „Ausführliches Log" unter [9] einschalten – dann landet jede Zeile von spotdl/yt-dlp im Protokoll.</p>
+  </div>
+  <div class="faq-item">
+    <h4>Was ist der Unterschied zwischen spotdl und yt-dlp?</h4>
+    <p><strong>spotdl</strong> holt saubere Metadaten von Spotify (Interpret, Album, Tracknummer, Cover, Lyrics) und sucht das passende Audio auf YouTube. <strong>yt-dlp</strong> lädt direkt von YouTube, SoundCloud, Bandcamp etc. – ideal für Live-Sets, Konzerte, Vorträge und alles, was es nicht auf Spotify gibt.</p>
+  </div>
+  <div class="faq-item">
+    <h4>Kann ich mehrere Playlists gleichzeitig synchronisieren?</h4>
+    <p>Ja. Unter [6] „Playlist-Sync" können beliebig viele Spotify-Playlists eingerichtet werden. Mit [A] werden alle auf einmal abgeglichen.</p>
+  </div>
+  <div class="faq-item">
+    <h4>Was passiert mit dem Rechner nach der Warteschlange?</h4>
+    <p>Normalerweise nichts – der Schakal wartet auf Tastendruck. Wenn du bei [W] „Rechner nach Abschluss herunterfahren" mit Ja beantwortest, fährt Windows nach dem letzten Auftrag mit 2 Minuten Vorlauf herunter. Abbruch jederzeit mit <code style="color:var(--cyan)">shutdown /a</code>.</p>
+  </div>
+  <div class="faq-item">
+    <h4>Das Autoradio liest meinen Stick nicht.</h4>
+    <p>Der Schakal warnt, wenn der Stick nicht FAT32-formatiert ist – viele Autoradios (z. B. Toyota Touch 2) lesen nur FAT32. Stick vorher mit Windows-Boardwerkzeugen umformatieren (Achtung: Daten gehen verloren).</p>
+  </div>
+  <div class="faq-item">
+    <h4>Kann ich das Tool auf Linux/macOS nutzen?</h4>
+    <p>Das Script ist in PowerShell geschrieben und läuft grundsätzlich auch unter PowerShell 7 auf Linux/macOS. Der USB-Stick-Menüpunkt ([U]) nutzt aber Windows-spezifische WMI/CIM-Abfragen und funktioniert dort nicht. Alles andere sollte laufen.</p>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section style="text-align:center">
+  <div class="info-box" style="max-width:750px;margin:0 auto">
+    <h3>🐺 Bereit für den Schakal?</h3>
+    <p>Das Tool ist kostenlos, quelloffen und komplett auf Deutsch. Issues und Pull Requests willkommen!</p>
+    <div style="margin-top:1.25rem;display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap">
+      <a href="https://github.com" class="btn btn-primary" target="_blank">⭐ Repository ansehen</a>
+      <a href="https://github.com" class="btn btn-secondary" target="_blank">🐞 Issue melden</a>
+      <a href="https://github.com" class="btn btn-secondary" target="_blank">📥 Release herunterladen</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <p>
+    Gebaut mit <span class="footer-heart">♥</span> in PowerShell ·
+    Powered by <a href="https://github.com/spotDL-Team/spotdl" target="_blank">spotdl</a> &
+    <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a>
+  </p>
+  <p style="margin-top:0.5rem;font-size:0.82rem">
+    YT-Schakal v1.3.0 · Nur für Inhalte nutzen, zu denen du berechtigt bist.
+  </p>
+</footer>
+
+<script>
+  function copyCode(btn) {
+    const code = btn.parentElement.textContent.replace('kopieren', '').trim();
+    navigator.clipboard.writeText(code).then(() => {
+      const old = btn.textContent;
+      btn.textContent = '✓ kopiert';
+      btn.style.color = 'var(--success)';
+      setTimeout(() => {
+        btn.textContent = old;
+        btn.style.color = '';
+      }, 1500);
+    });
+  }
+</script>
+
+</body>
+</html>
