@@ -14,7 +14,7 @@ Ein Spotify-Konto wird **nicht** gebraucht. spotdl nutzt Spotify nur als Datenba
 |-------|-------|------------|
 | `1` | Einzelsuche | Titel eintippen, wird gesucht und geladen |
 | `2` | Wunschliste | Alle Eintraege aus `wunschliste.txt` abarbeiten |
-| `3` | Link laden | Erkennt selbst, ob Spotify oder YouTube/Soundcloud/Bandcamp |
+| `3` | Link laden | Erkennt selbst die Art: Spotify-Track, -Album **oder -Playlist**, sowie YouTube/Soundcloud/Bandcamp. Fuer eine ganze Kuenstler-Diskografie ist Punkt `5` der bessere Weg |
 | `4` | Kanal-Playlists | YouTube-Kanal durchsuchen, Playlists auswaehlen |
 | `5` | Diskografie | Albenliste eines Kuenstlers, ankreuzen, laden |
 | `6` | Playlist-Sync | Ordner mit einer Spotify-Playlist gleichhalten |
@@ -28,6 +28,19 @@ Ein Spotify-Konto wird **nicht** gebraucht. spotdl nutzt Spotify nur als Datenba
 | `P` | Sammlung pruefen | Download-Reste und auffaellig kleine Dateien finden |
 
 **Mehrfachauswahl** ueberall dort, wo es mehrere Treffer gibt: Pfeiltasten bewegen, `Space` markiert, `A` alle, `K` keine, `I` umkehren, `Enter` startet, `Esc` bricht ab.
+
+### Wo lade ich was?
+
+Bei drei Menuepunkten ist auf den ersten Blick nicht klar, welcher der richtige ist — deshalb hier einmal explizit:
+
+| Ich habe... | ...gehoert in |
+|---|---|
+| einen Link auf einen einzelnen Spotify-Song | `3` |
+| einen Link auf ein einzelnes Spotify-Album | `3` |
+| einen Link auf eine Spotify-Playlist (eigene oder fremde) | `3` |
+| einen Bandnamen und will die ganze Diskografie durchsehen | `5` |
+| einen YouTube-Kanal mit kuratierten Playlists (z.B. "Tiny Desk Concerts") | `4` |
+| einen YouTube-"Kuenstler – Thema"-Kanal (automatisch erzeugt) | `5`, nicht `4` — siehe unten |
 
 ---
 
@@ -127,6 +140,8 @@ Reduziert auf zwei gleichzeitige Anfragen und legt 3–10 Sekunden Pause zwische
 **Der Bestandsabgleich vergleicht Ordnernamen.** Ein von Hand umbenannter Ordner erscheint faelschlich als fehlend.
 
 **„Sign in to confirm you're not a bot"** bedeutet, dass YouTube die IP voruebergehend gesperrt hat. Meist nach einigen Stunden vorbei. Dagegen hilft der Nachtmodus.
+
+**Nach dem Abarbeiten der Warteschlange (Taste `S`) zweimal eine Taste druecken.** Einmal fuer die Bilanzanzeige, danach prueft das Menue erneut, findet die jetzt leere Warteschlange und fragt noch einmal, bevor es zurueck ins Hauptmenue geht. Kein Fehler im Sinne von Datenverlust, nur ein ueberfluessiger zweiter Tastendruck.
 
 ---
 
