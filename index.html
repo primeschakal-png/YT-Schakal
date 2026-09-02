@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+&lt;!DOCTYPE html&gt;
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -550,7 +550,7 @@
 
 <!-- ============ HERO ============ -->
 <header class="hero">
-  <span class="badge">🎵 v1.3.0 · PowerShell · Open Source · Deutsch</span>
+  <span class="badge">🎵 v1.4.3 · PowerShell · Open Source · Deutsch</span>
   <h1>YT-Schakal</h1>
   <p class="tagline">
     Der menügesteuerte Downloader für <strong>spotdl</strong> und <strong>yt-dlp</strong>.
@@ -585,7 +585,7 @@
     <div class="feature-card">
       <div class="feature-icon">🔗</div>
       <h3>[3] Link laden</h3>
-      <p>Spotify, YouTube, SoundCloud, Bandcamp – einfach URL rein. Playlists und Alben werden erkannt.</p>
+      <p>Spotify-Track, -Album oder -Playlist, dazu YouTube, SoundCloud, Bandcamp – einfach URL rein. Die Art wird selbst erkannt.</p>
       <div class="hint">→ spotdl oder yt-dlp</div>
     </div>
     <div class="feature-card">
@@ -599,6 +599,12 @@
       <h3>[5] Diskografie</h3>
       <p>Komplette Albenliste eines Künstlers per Spotify-Link holen, Alben mit Pfeiltasten auswählen und selektiv laden.</p>
       <div class="hint">open.spotify.com/artist/...</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎯</div>
+      <h3>Playlists merken</h3>
+      <p>Spotify-Playlist laden und die Zusammenstellung merken – nur die Songliste, keine Dateipfade. Die Musik bleibt album-sortiert, nichts liegt doppelt.</p>
+      <div class="hint">data\playlists\</div>
     </div>
     <div class="feature-card">
       <div class="feature-icon">🔄</div>
@@ -615,7 +621,7 @@
     <div class="feature-card">
       <div class="feature-icon">🚗</div>
       <h3>[U] USB-Stick</h3>
-      <p>Alben auf den Stick fürs Autoradio kopieren – optional mit Zufallsmix und M3U-Playlist. FAT32-Warnung inklusive.</p>
+      <p>Alben oder eine gemerkte Playlist auf den Stick fürs Autoradio kopieren – optional mit Zufallsmix und M3U. FAT32-Warnung inklusive.</p>
       <div class="hint">_Fahrmix\ + _Fahrmix.m3u</div>
     </div>
     <div class="feature-card">
@@ -670,14 +676,14 @@
       <span class="terminal-title">PowerShell – YT-Schakal · Hauptmenü</span>
     </div>
     <div class="terminal-body"><span class="t-dim">===========================================================================</span>
-<span class="t-title">   Y T - S C H A K A L   v1.3.0</span>
+<span class="t-title">   Y T - S C H A K A L   v1.4.3</span>
 <span class="t-dim">===========================================================================</span>
 <span class="t-dim">   Ziel: C:\Users\Musik\Musik     Format: mp3 @ 192k</span>
 <span class="t-dim">===========================================================================</span>
 
      <span class="t-cmd">[1]</span>  Einzelsuche          - Titel eingeben, wird gesucht und geladen
      <span class="t-cmd">[2]</span>  Wunschliste          - alle Einträge aus wunschliste.txt
-     <span class="t-cmd">[3]</span>  Link laden           - Spotify, YouTube, Soundcloud, Bandcamp
+     <span class="t-cmd">[3]</span>  Link laden           - Spotify (auch Playlist), YouTube, Soundcloud
      <span class="t-cmd">[4]</span>  Kanal-Playlists      - YouTube-Kanal durchsuchen und auswählen
      <span class="t-title">[5]</span>  <span class="t-title">Diskografie          - Alben eines Künstlers auswählen</span>
      <span class="t-cmd">[6]</span>  Playlist-Sync        - Ordner mit Spotify-Playlist gleichhalten
@@ -685,7 +691,7 @@
      <span class="t-cmd">[8]</span>  Werkzeuge aktualisieren
      <span class="t-cmd">[9]</span>  Einstellungen
      <span class="t-cmd">[A]</span>  Archiv
-     <span class="t-cmd">[U]</span>  USB-Stick bestücken  - Alben auf den Stick fürs Auto
+     <span class="t-cmd">[U]</span>  USB-Stick bestücken  - Alben oder gemerkte Playlist auf den Stick
      <span class="t-cmd">[W]</span>  Warteschlange        - gesammelte Aufträge abarbeiten
      <span class="t-title">[B]</span>  <span class="t-title">Bestandsabgleich     - was fehlt aus gespeicherten Diskografien?</span>
      <span class="t-title">[P]</span>  <span class="t-title">Sammlung prüfen      - Reste und auffällig kleine Dateien</span>
@@ -746,48 +752,46 @@
   </div>
   <p class="terminal-caption">↑ Alle Voraussetzungen grün – der Schakal ist startklar.</p>
 
-  <!-- ============ TERMINAL: USB-STICK ============ -->
+  <!-- ============ TERMINAL: PLAYLIST AUF USB ============ -->
   <div class="terminal">
     <div class="terminal-header">
       <span class="dot dot-r"></span>
       <span class="dot dot-y"></span>
       <span class="dot dot-g"></span>
-      <span class="terminal-title">Menüpunkt U · USB-Stick bestücken</span>
+      <span class="terminal-title">Menüpunkt U · Gemerkte Playlist zusammenstellen</span>
     </div>
-    <div class="terminal-body"><span class="t-dim">===========================================================================</span>
-<span class="t-title">  USB-Stick bestücken</span>
-<span class="t-dim">===========================================================================</span>
-  Kopiert ausgewählte Alben aus deiner Sammlung auf einen Stick.
-  Ordner = Alben im Autoradio-Browser. Optional ein Mix-Ordner.
+    <div class="terminal-body"><span class="t-title">  Was soll auf den Stick?</span>
+    <span class="t-cmd">[1]</span>  Alben aus der Sammlung auswählen
+    <span class="t-cmd">[2]</span>  Gemerkte Playlist zusammenstellen (3 vorhanden)
 
-<span class="t-title">  Gefundene Sticks:</span>
-
-    <span class="t-cmd">[1]</span>  E:\  (MUSIC_STICK)  FAT32  -  12,4 von 14,9 GB frei
-
-<span class="t-prompt">  Nummer (Enter bricht ab):</span> <span class="t-str">1</span>
-
-  Lese die Sammlung ein ...
+<span class="t-prompt">  Auswahl [1]:</span> <span class="t-str">2</span>
 
 <span class="t-dim">===========================================================================</span>
-<span class="t-title">  Zusammenfassung</span>
+<span class="t-title">  Sommer 2026</span>
 <span class="t-dim">===========================================================================</span>
-  8 Alben, 94 Titel, 712 MB
+<span class="t-ok">  Gefunden : 27 von 30</span>
+<span class="t-warn">  Fehlend  : 3</span>
 
-<span class="t-prompt">  Zusätzlich einen Mix-Ordner mit Zufallstiteln anlegen? (j/n)</span> <span class="t-str">j</span>
-<span class="t-prompt">  Wie viele Titel? [50]</span> <span class="t-str">50</span>
+<span class="t-warn">  Diese Titel liegen nicht in der Sammlung:</span>
+<span class="t-dim">      4. Fontaines D.C. - Starburster</span>
+<span class="t-dim">     18. The Last Dinner Party - Nothing Matters</span>
+<span class="t-dim">     25. Fat Dog - King of the Slugs</span>
+
+<span class="t-dim">  Mögliche Gründe: noch nicht geladen, oder Interpret/Titel weichen</span>
+<span class="t-dim">  nach dem Tagging ab (Remaster, Live-Fassung, Featuring).</span>
+
+<span class="t-prompt">  Wird kopiert: 27 Titel, 189 MB</span>
+<span class="t-prompt">  Los? (j/n)</span> <span class="t-str">j</span>
 
 <span class="t-dim">---------------------------------------------------------------------------</span>
 <span class="t-title">  Bilanz</span>
 <span class="t-dim">---------------------------------------------------------------------------</span>
-<span class="t-ok">  Kopiert       : 144</span>
-<span class="t-dim">  Übersprungen  : 0  (waren schon drauf)</span>
-<span class="t-ok">  Fehler        : 0</span>
-<span class="t-dim">  Dauer         : 00:01:42</span>
-
-<span class="t-warn">  Stick über "Hardware sicher entfernen" auswerfen, sonst drohen</span>
-<span class="t-warn">  halbe Dateien - FAT32 hat kein Sicherheitsnetz.</span></div>
+<span class="t-ok">  Kopiert  : 27</span>
+<span class="t-warn">  Fehlend  : 3  (nicht in der Sammlung)</span>
+<span class="t-dim">  Ordner   : E:\Sommer 2026</span>
+<span class="t-dim">  Dauer    : 00:00:18</span></div>
   </div>
-  <p class="terminal-caption">↑ Inkl. Mix-Ordner und M3U-Playlist fürs Autoradio.</p>
+  <p class="terminal-caption">↑ Die Playlist wird aus der album-sortierten Sammlung zusammengesucht.</p>
 
   <!-- ============ TERMINAL: BESTANDSABGLEICH ============ -->
   <div class="terminal">
@@ -821,6 +825,40 @@
   <p class="terminal-caption">↑ Zeigt, was aus gespeicherten Diskografien noch fehlt.</p>
 </section>
 
+<!-- ============ PLAYLIST-KONZEPT ============ -->
+<section>
+  <h2 class="section-title">Playlists: gemerkt statt kopiert</h2>
+  <p class="section-subtitle">Wie eine Spotify-Playlist erhalten bleibt, ohne die Albenstruktur zu zerstören.</p>
+
+  <div class="info-box">
+    <h3>🎯 Das Problem</h3>
+    <p>Eine Playlist quer durch verschiedene Künstler stellt vor eine Wahl: Die Titel gehören in ihre Album-Ordner – aber dann ist die Zusammenstellung weg. Legt man sie in einen Playlist-Ordner, fehlen sie in der Albenstruktur. Beides gleichzeitig ginge nur mit doppelten Dateien.</p>
+  </div>
+
+  <div class="install-steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h4>Merken beim Laden</h4>
+      <p>Bei einem Spotify-Playlist-Link unter <strong>[3]</strong> fragt der Schakal, ob die Playlist gemerkt werden soll. Gespeichert wird nur die Songliste – Interpret, Titel, Position. <strong>Keine Dateipfade.</strong></p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h4>Musik bleibt sortiert</h4>
+      <p>Die Titel landen ganz normal in ihren Album-Ordnern. Nichts liegt doppelt, die Sammlung bleibt aufgeräumt – und lässt sich später umsortieren oder neu taggen, ohne die Playlist zu zerstören.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h4>Zusammenstellen beim Export</h4>
+      <p>Unter <strong>[U]</strong> die gemerkte Playlist wählen: Der Schakal sucht die Titel in der Sammlung zusammen und kopiert sie flach und nummeriert in einen Ordner auf den Stick – im Autoradio eine fertige Playlist.</p>
+    </div>
+  </div>
+
+  <div class="warn-box">
+    <h4>⚠️ Wenn Titel nicht gefunden werden</h4>
+    <p>Die Zuordnung läuft über Dateiname und Ordnerstruktur, nicht über die eingebetteten Tags. Zusätze wie „(Remastered 2011)", „(feat. X)" oder „- Live" werden beim Vergleich ignoriert. Trotzdem können Titel danebengehen – sie werden dann vor dem Kopieren namentlich aufgelistet, nicht stillschweigend übergangen. Dasselbe gilt für mehrdeutige Fälle wie „Intro" oder „Home", bei denen mehrere Dateien passen.</p>
+  </div>
+</section>
+
 <!-- ============ MENU DETAILS ============ -->
 <section id="menu">
   <h2 class="section-title">Das Menü im Detail</h2>
@@ -845,7 +883,7 @@
       <span class="menu-key">3</span>
       <div class="menu-text">
         <strong>Link laden</strong>
-        <span>Spotify → spotdl, YouTube/SC/Bandcamp → yt-dlp. Sofort oder in Warteschlange.</span>
+        <span>Spotify-Track, -Album oder -Playlist → spotdl. YouTube/SC/Bandcamp → yt-dlp. Playlists können gemerkt werden.</span>
       </div>
     </div>
     <div class="menu-item">
@@ -901,7 +939,7 @@
       <span class="menu-key">U</span>
       <div class="menu-text">
         <strong>USB-Stick bestücken</strong>
-        <span>Alben aufs Auto-Radio kopieren. Optional Mix-Ordner + M3U.</span>
+        <span>Alben oder gemerkte Playlist aufs Auto-Radio kopieren. Optional Mix-Ordner + M3U.</span>
       </div>
     </div>
     <div class="menu-item">
@@ -999,6 +1037,11 @@
       </tr>
     </tbody>
   </table>
+
+  <div class="info-box">
+    <h3>🛡️ Selbstheilende Konfiguration</h3>
+    <p>Unsinnige Werte in der <code>einstellungen.json</code> – ein unbekanntes Format, eine ungültige Bitrate, Threads außerhalb 1–8 oder ein Namensschema ohne <code>{title}</code> – werden beim Start erkannt, auf den Standard zurückgesetzt, gemeldet und sofort gespeichert.</p>
+  </div>
 </section>
 
 <!-- ============ INSTALL ============ -->
@@ -1070,7 +1113,8 @@ cd YT-Schakal
   <span class="t-dim">warteschlange.txt</span>   <span class="t-dim">← offene Aufträge (Typ|Beschreibung|Abfrage)</span>
   <span class="t-dim">log.txt</span>             <span class="t-dim">← Protokoll aller Läufe (Rotation ab 1 MB)</span>
   <span class="t-dim">sync\</span>               <span class="t-dim">← Sync-Dateien für Playlists (*.spotdl)</span>
-  <span class="t-dim">diskografie\</span>        <span class="t-dim">← zwischengespeicherte Künstlerkataloge</span></div>
+  <span class="t-dim">diskografie\</span>        <span class="t-dim">← zwischengespeicherte Künstlerkataloge</span>
+  <span class="t-dim">playlists\</span>          <span class="t-dim">← gemerkte Playlists (nur Songlisten, kein Audio)</span></div>
   </div>
 
   <div class="info-box">
@@ -1092,6 +1136,14 @@ cd YT-Schakal
   <div class="faq-item">
     <h4>„Geht plötzlich nicht mehr" – obwohl gestern noch alles lief?</h4>
     <p>Meistens hat YouTube etwas geändert und yt-dlp ist veraltet. Menüpunkt [8] „Werkzeuge aktualisieren" löst das in 90% der Fälle.</p>
+  </div>
+  <div class="faq-item">
+    <h4>Wohin gehört eine Spotify-Playlist – [3] oder [5]?</h4>
+    <p>In <strong>[3] Link laden</strong>. Menüpunkt [5] ist ausschließlich für Künstler- und Album-Links gedacht – wer dort eine Playlist einwirft, bekommt einen Hinweis auf [3]. Faustregel: [3] für einzelne Links jeder Art, [5] wenn du den ganzen Katalog einer Band durchsehen willst.</p>
+  </div>
+  <div class="faq-item">
+    <h4>Warum liegen meine Playlist-Titel nicht in einem Ordner?</h4>
+    <p>Absicht. Die Titel gehören in ihre Album-Ordner, damit die Sammlung eine Struktur behält und nichts doppelt liegt. Wer die Playlist als Ordner braucht – etwa fürs Autoradio – lässt sie beim Laden merken und stellt sie später unter [U] auf dem Stick zusammen.</p>
   </div>
   <div class="faq-item">
     <h4>Wo finde ich das Log, wenn etwas schiefging?</h4>
@@ -1140,7 +1192,7 @@ cd YT-Schakal
     <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a>
   </p>
   <p style="margin-top:0.5rem;font-size:0.82rem">
-    YT-Schakal v1.3.0 · Nur für Inhalte nutzen, zu denen du berechtigt bist.
+    YT-Schakal v1.4.3 · Nur für Inhalte nutzen, zu denen du berechtigt bist.
   </p>
 </footer>
 
