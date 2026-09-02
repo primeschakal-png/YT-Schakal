@@ -30,7 +30,7 @@ try {
 $ErrorActionPreference = 'Continue'
 
 # Bei jeder nennenswerten Aenderung hochzaehlen und im CHANGELOG eintragen.
-$Version = '1.3.0'
+$Version = '1.4.2'
 
 # =============================================================================
 #  PFADE
@@ -48,6 +48,7 @@ $DateiLog           = Join-Path $OrdnerData 'log.txt'
 $DateiQueue         = Join-Path $OrdnerData 'warteschlange.txt'
 $OrdnerSync         = Join-Path $OrdnerData 'sync'
 $OrdnerDiskografie  = Join-Path $OrdnerData 'diskografie'
+$OrdnerPlaylists    = Join-Path $OrdnerData 'playlists'
 
 # Was der Nutzer selbst anfasst, bleibt im Hauptordner sichtbar.
 $DateiListe         = Join-Path $Basis 'wunschliste.txt'
@@ -266,10 +267,27 @@ function Pruefe-Einstellungen {
         $Konfig.Namensschema = $Standard.Namensschema
     }
 
-    # Schalter muessen echte Wahrheitswerte sein
+    # Schalter muessen echte Wahrheitswerte sein.
+    # ACHTUNG: [bool]'false' ist in PowerShell $true - jeder nichtleere
+    # String wird wahr. Deshalb den Text auswerten statt zu casten.
     foreach ($feld in @('LyricsHolen','ArchivNutzen','NurVerifiziert','PlaylistOrdner','Nachtmodus','LogAusfuehrlich')) {
-        if ($Konfig[$feld] -isnot [bool]) {
-            $Konfig[$feld] = [bool]$Konfig[$feld]
+        if ($Konfig[$feld] -is [bool]) { continue }
+
+        $wert = ([string]$Konfig[$feld]).Trim().ToLowerInvariant()
+
+        switch ($wert) {
+            'true'  { $Konfig[$feld] = $true }
+            '1'     { $Konfig[$feld] = $true }
+            'yes'   { $Konfig[$feld] = $true }
+            'ja'    { $Konfig[$feld] = $true }
+            'false' { $Konfig[$feld] = $false }
+            '0'     { $Konfig[$feld] = $false }
+            'no'    { $Konfig[$feld] = $false }
+            'nein'  { $Konfig[$feld] = $false }
+            default {
+                [void]$korrekturen.Add(("{0} = '{1}' nicht deutbar -> Standard" -f $feld, $wert))
+                $Konfig[$feld] = $Standard[$feld]
+            }
         }
     }
 
@@ -280,6 +298,10 @@ function Pruefe-Einstellungen {
             Melde "    $k" 'Grau'
             Schreibe-Log ("Einstellung korrigiert: {0}" -f $k) 'WARN'
         }
+        # Sofort speichern - sonst steht beim naechsten Start derselbe
+        # Unsinn wieder in der Datei und die Meldung kommt erneut.
+        Speichere-Einstellungen -Konfig $Konfig
+        Melde '  Korrigierte Werte gespeichert.' 'Grau'
         Write-Host ''
     }
 
@@ -585,13 +607,19 @@ function Ermittle-Ergebnis {
     if ($null -ne $ausAusgabe) {
         $abgedeckt = $ausAusgabe.Neu + $ausAusgabe.Uebersprungen
 
-        # Gegenprobe nur bei bekanntem Soll und gemeldetem Fehlbetrag
-        if ($Soll -gt 0 -and $abgedeckt -lt $Soll) {
+        # Gegenprobe in zwei Faellen:
+        #   a) bekanntes Soll nicht erreicht
+        #   b) gar nichts erkannt (0 neu, 0 uebersprungen) - dann kann das
+        #      Werkzeug etwas geladen haben, dessen Abschlusszeile wir nur
+        #      nicht kennen. Betrifft vor allem Einzeldownloads ohne Soll.
+        $pruefen = ($Soll -gt 0 -and $abgedeckt -lt $Soll) -or ($abgedeckt -eq 0)
+
+        if ($pruefen) {
             $imDateisystem = Zaehle-NeueSeit -Ordner $Zielordner -Seit $Startzeit
 
             if ($imDateisystem -gt $ausAusgabe.Neu) {
-                Schreibe-Log ("Gegenprobe: Ausgabe meldete {0} von {1}, im Dateisystem liegen {2} - nehme den hoeheren Wert" -f `
-                              $abgedeckt, $Soll, $imDateisystem) 'WARN'
+                Schreibe-Log ("Gegenprobe: Ausgabe meldete {0} neu, im Dateisystem liegen {1} - nehme den hoeheren Wert" -f `
+                              $ausAusgabe.Neu, $imDateisystem) 'WARN'
                 return [pscustomobject]@{
                     Neu            = $imDateisystem
                     Uebersprungen  = $ausAusgabe.Uebersprungen
@@ -739,7 +767,13 @@ function Hole-MitYtdlp {
 
     if (-not (Get-Command yt-dlp -ErrorAction SilentlyContinue)) {
         Melde '  yt-dlp ist nicht installiert.  Abhilfe:  pip install yt-dlp' 'Fehler'
-        return [pscustomobject]@{ Erfolg = $false; ExitCode = -1; NeueDateien = 0 }
+        return [pscustomobject]@{
+            Erfolg         = $false
+            ExitCode       = -1
+            NeueDateien    = 0
+            Uebersprungen  = 0
+            Ermittlungsart = 'Nicht gestartet'
+        }
     }
 
 
@@ -905,6 +939,11 @@ function Waehle-AusListe {
 function Finde-Kanaele {
     param([string]$Suchbegriff)
 
+    if (-not (Get-Command yt-dlp -ErrorAction SilentlyContinue)) {
+        Melde '  yt-dlp ist nicht installiert.  Abhilfe:  pip install yt-dlp' 'Fehler'
+        return @()
+    }
+
     Melde '  Suche laeuft ...' 'Grau'
 
     $argumente = @(
@@ -997,24 +1036,34 @@ function Sammle-Playlists {
         try { if ($null -ne $e.url) { $url = [string]$e.url } } catch { }
         try { if ($null -ne $e.id)  { $id  = [string]$e.id  } } catch { }
 
-        # Nur echte Playlists und Alben durchlassen:
-        #   PL        - vom Nutzer angelegte Playlist
-        #   OLAK5uy_  - Album auf einem Kuenstler-/Topic-Kanal
-        #   UU        - automatische Uploads-Playlist eines Kanals
-        # Bewusst NICHT: RD (automatische Radio-Mixe), LL (Likes), FL (Favoriten).
-        # Die tauchen auf Kanalseiten als Vorschlaege auf und sind keine Alben.
+        # Ein Objekt mit eigenen 'entries' ist ein Container (Rubrik, Tab).
+        # Dort IMMER hineinsteigen - unabhaengig davon, wie seine ID aussieht.
+        # Sonst blockiert eine Rubrik mit langer ID die darunterliegenden
+        # echten Playlists.
+        if ($e.entries) {
+            Sammle-Playlists -Knoten $e.entries -Sammler $Sammler -Tiefe ($Tiefe + 1)
+            continue
+        }
+
+        # Blattobjekt: Playlist, wenn URL oder Metadaten es sagen.
+        # Die ID-Laenge allein reicht NICHT - auch Videos und Kanaele koennen
+        # lange IDs tragen.
         $istPlaylist = $false
-        if ($url -match '[?&]list=(PL|OLAK5uy_|UU)') { $istPlaylist = $true }
-        if ($id  -match '^(PL|OLAK5uy_|UU)')         { $istPlaylist = $true }
+        if ($url -match '[?&]list=')                       { $istPlaylist = $true }
+        elseif ($e._type -eq 'playlist')                   { $istPlaylist = $true }
+        elseif ($e.ie_key -eq 'YoutubeTab')                { $istPlaylist = $true }
+        elseif ($e.playlist_count -or $e.video_count)      { $istPlaylist = $true }
+
+        # Automatische Listen ausschliessen:
+        #   RD - Radio-Mixe, LL - Likes, FL - Favoriten, WL - Watch Later
+        if ($id -match '^(RD|LL|FL|WL)')            { $istPlaylist = $false }
+        if ($url -match '[?&]list=(RD|LL|FL|WL)')   { $istPlaylist = $false }
 
         if ($istPlaylist) {
             $obj = Baue-PlaylistObjekt $e
             if ($obj -and -not [string]::IsNullOrWhiteSpace($obj.Url)) {
                 [void]$Sammler.Add($obj)
             }
-        }
-        elseif ($e.entries) {
-            Sammle-Playlists -Knoten $e.entries -Sammler $Sammler -Tiefe ($Tiefe + 1)
         }
     }
 }
@@ -1182,6 +1231,258 @@ function Hole-KanalPlaylists {
 }
 
 # =============================================================================
+#  GEMERKTE PLAYLISTS
+# =============================================================================
+#  Die Musik bleibt album-sortiert in der Sammlung liegen. Zusaetzlich wird
+#  nur die Songliste gemerkt: welcher Titel, welcher Interpret, welche
+#  Position. Beim USB-Export sucht das Script die Dateien anhand ihrer Tags
+#  wieder zusammen und legt sie flach in einen Playlist-Ordner auf den Stick.
+#
+#  Bewusst KEINE Dateipfade speichern: die Sammlung darf umsortiert,
+#  umbenannt oder neu getaggt werden, ohne dass die Playlist kaputtgeht.
+# =============================================================================
+
+function Merke-Playlist {
+    <#
+      Liest eine per 'spotdl save' erzeugte Songliste und legt daraus eine
+      schlanke Playlist-Datei an (Interpret, Titel, Position).
+    #>
+    param([string]$Name, [string]$SpotdlDatei, [string]$Quelle = '')
+
+    if (-not (Test-Path $SpotdlDatei)) { return $false }
+
+    try {
+        $roh = Get-Content $SpotdlDatei -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        Schreibe-Log "Playlist merken: JSON nicht lesbar ($SpotdlDatei)" 'FEHLER'
+        return $false
+    }
+
+    $eintraege = New-Object System.Collections.ArrayList
+    $position = 0
+
+    foreach ($s in @($roh)) {
+        if (-not $s) { continue }
+        $position++
+
+        $interpret = ''
+        $titel     = ''
+        try { if ($s.artist) { $interpret = [string]$s.artist } } catch { }
+        try { if ($s.name)   { $titel     = [string]$s.name   } } catch { }
+        if (-not $titel) { try { if ($s.title) { $titel = [string]$s.title } } catch { } }
+
+        if ([string]::IsNullOrWhiteSpace($titel)) { continue }
+
+        [void]$eintraege.Add([pscustomobject]@{
+            Position  = $position
+            Interpret = $interpret
+            Titel     = $titel
+        })
+    }
+
+    if ($eintraege.Count -eq 0) { return $false }
+
+    if (-not (Test-Path $OrdnerPlaylists)) {
+        New-Item -Path $OrdnerPlaylists -ItemType Directory -Force | Out-Null
+    }
+
+    $datei = Join-Path $OrdnerPlaylists ((Saeubere-Dateiname $Name) + '.json')
+    $inhalt = [pscustomobject]@{
+        Name     = $Name
+        Quelle   = $Quelle
+        Erstellt = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+        Anzahl   = $eintraege.Count
+        Songs    = @($eintraege)
+    }
+
+    try {
+        $inhalt | ConvertTo-Json -Depth 5 | Set-Content -Path $datei -Encoding UTF8
+        Schreibe-Log ("Playlist gemerkt: {0} ({1} Titel)" -f $Name, $eintraege.Count) 'OK'
+        return $true
+    } catch {
+        Schreibe-Log "Playlist merken fehlgeschlagen: $($_.Exception.Message)" 'FEHLER'
+        return $false
+    }
+}
+
+function Lese-GemerktePlaylists {
+    if (-not (Test-Path $OrdnerPlaylists)) { return @() }
+
+    $liste = New-Object System.Collections.ArrayList
+    foreach ($d in @(Get-ChildItem -Path $OrdnerPlaylists -Filter '*.json' -File -ErrorAction SilentlyContinue)) {
+        try {
+            $inhalt = Get-Content $d.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+            [void]$liste.Add([pscustomobject]@{
+                Name     = $inhalt.Name
+                Anzahl   = $inhalt.Anzahl
+                Erstellt = $inhalt.Erstellt
+                Songs    = @($inhalt.Songs)
+                Datei    = $d.FullName
+            })
+        } catch {
+            Schreibe-Log "Playlist-Datei defekt: $($d.Name)" 'WARN'
+        }
+    }
+    return @($liste)
+}
+
+function Baue-Titelindex {
+    <#
+      Liest alle Audiodateien im Zielordner ein und legt sie unter einem
+      normalisierten Schluessel aus Interpret und Titel ab.
+
+      Der TITEL kommt aus dem Dateinamen (ohne fuehrende Nummer).
+      Der INTERPRET kommt aus der ORDNERSTRUKTUR - beim Standardschema
+      Zielordner\Interpret\Album\Datei ist das der Grossvater-Ordner.
+      Bei anderen Schemata kann der Interpret falsch oder leer sein; dann
+      greift nur noch der Titel-Schluessel, der mehrdeutig sein kann.
+
+      Tags aus den Dateien zu lesen waere zuverlaessiger, braeuchte aber
+      eine externe Bibliothek (TagLib, ffprobe).
+
+      Rueckgabe: Hashtable Schluessel -> Liste von FileInfo
+      (Liste statt Einzelwert, damit Mehrdeutigkeiten sichtbar bleiben)
+    #>
+    param([string]$Zielordner)
+
+    $index = @{}
+    if (-not (Test-Path $Zielordner)) { return $index }
+
+    $endungen = @('.mp3','.m4a','.flac','.ogg','.opus','.wav')
+    $zielNorm = $Zielordner.TrimEnd('\')
+
+    foreach ($d in @(Get-ChildItem -Path $Zielordner -File -Recurse -ErrorAction SilentlyContinue)) {
+        if ($endungen -notcontains $d.Extension.ToLower()) { continue }
+
+        # Fuehrende Titelnummer abstreifen: "03 - Titel" -> "Titel"
+        $titel = $d.BaseName -replace '^\d+\s*-\s*', ''
+
+        # Interpret aus der Ordnerstruktur ableiten
+        $interpret = ''
+        $eltern = $d.Directory
+        if ($eltern -and $eltern.Parent) {
+            if ($eltern.Parent.FullName -eq $zielNorm) {
+                # Datei liegt direkt in Zielordner\X\ - X ist dann der Interpret
+                $interpret = $eltern.Name
+            } else {
+                # Datei liegt in Zielordner\Interpret\Album\ - Grossvater
+                $interpret = $eltern.Parent.Name
+            }
+        }
+
+        foreach ($schluessel in @(
+            (Normalisiere-Titelschluessel -Interpret $interpret -Titel $titel),
+            (Normalisiere-Titelschluessel -Interpret ''         -Titel $titel)
+        )) {
+            if (-not $schluessel) { continue }
+            if (-not $index.ContainsKey($schluessel)) {
+                $index[$schluessel] = New-Object System.Collections.ArrayList
+            }
+            [void]$index[$schluessel].Add($d)
+        }
+    }
+
+    return $index
+}
+
+function Normalisiere-Titelschluessel {
+    <#
+      Macht Interpret und Titel vergleichbar: Kleinschreibung, Klammerzusaetze
+      wie "(Remastered 2011)" oder "- Live" raus, dann alle Sonderzeichen.
+    #>
+    param([string]$Interpret, [string]$Titel)
+
+    $t = [string]$Titel
+    if ([string]::IsNullOrWhiteSpace($t)) { return '' }
+
+    $t = $t.ToLowerInvariant()
+    $t = $t -replace '\((feat|ft|with)[^)]*\)', ''
+    $t = $t -replace '\((remaster|remastered|live|radio edit|single version|album version)[^)]*\)', ''
+    $t = $t -replace '\s*-\s*(remaster|remastered|live|radio edit)\b.*$', ''
+    $t = $t -replace '[^\p{L}\p{Nd}]', ''
+
+    $i = [string]$Interpret
+    if ($i) {
+        $i = $i.ToLowerInvariant()
+        # Nur der erste Interpret zaehlt - Featurings stehen unterschiedlich da
+        $i = ($i -split '[,;&/]')[0]
+        $i = $i -replace '[^\p{L}\p{Nd}]', ''
+    }
+
+    if ([string]::IsNullOrWhiteSpace($t)) { return '' }
+    return ('{0}|{1}' -f $i, $t)
+}
+
+function Finde-PlaylistDateien {
+    <#
+      Sucht zu den Songs einer gemerkten Playlist die Dateien in der Sammlung.
+
+      Reihenfolge: erst Interpret+Titel (eindeutig), dann nur Titel. Beim
+      Titel-Schluessel koennen mehrere Dateien passen ("Intro", "Home" ...) -
+      dann wird der erste Treffer genommen und der Fall als mehrdeutig
+      gemeldet, damit der Nutzer ihn pruefen kann.
+
+      Rueckgabe: Objekt mit Gefunden, Fehlend und Mehrdeutig (alles Listen).
+    #>
+    param($Playlist, [string]$Zielordner)
+
+    $index = Baue-Titelindex -Zielordner $Zielordner
+
+    $gefunden   = New-Object System.Collections.ArrayList
+    $fehlend    = New-Object System.Collections.ArrayList
+    $mehrdeutig = New-Object System.Collections.ArrayList
+
+    foreach ($s in $Playlist.Songs) {
+        $mitInterpret = Normalisiere-Titelschluessel -Interpret $s.Interpret -Titel $s.Titel
+        $nurTitel     = Normalisiere-Titelschluessel -Interpret ''           -Titel $s.Titel
+
+        $kandidaten = $null
+        $ueberTitelAllein = $false
+
+        if ($mitInterpret -and $index.ContainsKey($mitInterpret)) {
+            $kandidaten = $index[$mitInterpret]
+        } elseif ($nurTitel -and $index.ContainsKey($nurTitel)) {
+            $kandidaten = $index[$nurTitel]
+            $ueberTitelAllein = $true
+        }
+
+        if (-not $kandidaten -or $kandidaten.Count -eq 0) {
+            [void]$fehlend.Add([pscustomobject]@{
+                Position  = $s.Position
+                Interpret = $s.Interpret
+                Titel     = $s.Titel
+            })
+            continue
+        }
+
+        $treffer = [pscustomobject]@{
+            Position  = $s.Position
+            Interpret = $s.Interpret
+            Titel     = $s.Titel
+            Datei     = $kandidaten[0]
+        }
+        [void]$gefunden.Add($treffer)
+
+        # Mehrdeutig, wenn nur ueber den Titel gefunden UND mehrere passen
+        if ($ueberTitelAllein -and $kandidaten.Count -gt 1) {
+            [void]$mehrdeutig.Add([pscustomobject]@{
+                Position  = $s.Position
+                Interpret = $s.Interpret
+                Titel     = $s.Titel
+                Gewaehlt  = $kandidaten[0].FullName
+                Anzahl    = $kandidaten.Count
+            })
+        }
+    }
+
+    return [pscustomobject]@{
+        Gefunden   = @($gefunden   | Sort-Object -Property Position)
+        Fehlend    = @($fehlend    | Sort-Object -Property Position)
+        Mehrdeutig = @($mehrdeutig | Sort-Object -Property Position)
+    }
+}
+
+# =============================================================================
 #  MENUEPUNKT 1  --  EINZELSUCHE
 # =============================================================================
 
@@ -1209,12 +1510,19 @@ function Menue-Einzelsuche {
     $dauer = (Get-Date) - $start
 
     Write-Host ''
-    if ($ergebnis.NeueDateien -gt 0) {
-        Melde ("  Fertig: {0} Datei(en) in {1:N0} Sekunden." -f $ergebnis.NeueDateien, $dauer.TotalSeconds) 'Gut'
+    $abgedeckt = $ergebnis.NeueDateien
+    if ($null -ne $ergebnis.Uebersprungen) { $abgedeckt += $ergebnis.Uebersprungen }
+
+    if ($ergebnis.Erfolg -and $abgedeckt -gt 0) {
+        if ($ergebnis.NeueDateien -gt 0) {
+            Melde ("  Fertig: {0} Datei(en) in {1:N0} Sekunden." -f $ergebnis.NeueDateien, $dauer.TotalSeconds) 'Gut'
+        } else {
+            Melde '  War bereits vorhanden - nichts zu tun.' 'Gut'
+        }
         Merke-ImArchiv -Eintrag $abfrage -Konfig $Konfig
-        Schreibe-Log "OK: $abfrage" 'OK'
+        Schreibe-Log "OK: $abfrage ($($ergebnis.NeueDateien) neu, $($ergebnis.Uebersprungen) vorhanden)" 'OK'
     } else {
-        Melde '  Keine neue Datei - nichts gefunden oder schon vorhanden.' 'Warnung'
+        Melde ("  Nichts geladen - kein Treffer oder Fehler (Exit {0})." -f $ergebnis.ExitCode) 'Warnung'
         Schreibe-Log "Ohne Ergebnis: $abfrage (Exit $($ergebnis.ExitCode))" 'WARN'
     }
     Warte-AufTaste
@@ -1293,13 +1601,20 @@ function Menue-Liste {
 
         $ergebnis = Hole-MitSpotdl -Konfig $Konfig -Abfrage $eintrag
 
-        if ($ergebnis.NeueDateien -gt 0) {
-            Melde ("  OK ({0} Datei(en))" -f $ergebnis.NeueDateien) 'Gut'
+        $abgedeckt = $ergebnis.NeueDateien
+        if ($null -ne $ergebnis.Uebersprungen) { $abgedeckt += $ergebnis.Uebersprungen }
+
+        if ($ergebnis.Erfolg -and $abgedeckt -gt 0) {
+            if ($ergebnis.NeueDateien -gt 0) {
+                Melde ("  OK ({0} Datei(en))" -f $ergebnis.NeueDateien) 'Gut'
+            } else {
+                Melde ("  Bereits vorhanden ({0} uebersprungen)." -f $ergebnis.Uebersprungen) 'Grau'
+            }
             Merke-ImArchiv -Eintrag $eintrag -Konfig $Konfig
             $erfolgreich++
             Schreibe-Log "OK: $eintrag" 'OK'
         } else {
-            Melde '  Nichts geladen.' 'Fehler'
+            Melde ("  Nichts geladen (Exit {0})." -f $ergebnis.ExitCode) 'Fehler'
             $fehlgeschlagen++
             $fehlerliste.Add($eintrag)
             Schreibe-Log "FEHLER: $eintrag (Exit $($ergebnis.ExitCode))" 'FEHLER'
@@ -1355,12 +1670,37 @@ function Menue-Link {
 
     $istSpotify = $eingabe -match 'open\.spotify\.com|spotify:'
     $istLink    = $eingabe -match '^https?://'
+    $istSpotifyPlaylist = $eingabe -match 'open\.spotify\.com/playlist/'
 
     $alsPlaylist = $false
     if ($istLink -and -not $istSpotify) {
         if ($eingabe -match 'list=|/playlist|/sets/|/album/') {
             $antwort = Read-Host '  Sieht nach Playlist/Album aus. Alles laden? (j/n)'
             $alsPlaylist = ($antwort -match '^[jJyY]')
+        }
+    }
+
+    # Bei Spotify-Playlists anbieten, die Zusammenstellung zu merken.
+    # Die Musik selbst bleibt album-sortiert - gemerkt wird nur, welche
+    # Titel dazugehoeren. Beim USB-Export laesst sich daraus ein
+    # Playlist-Ordner zusammenstellen.
+    $playlistMerken = $false
+    $playlistName   = ''
+    if ($istSpotifyPlaylist) {
+        Write-Host ''
+        Melde '  Das ist eine Playlist. Die Titel landen wie gewohnt in ihren' 'Grau'
+        Melde '  Album-Ordnern - die Playlist-Zusammenstellung geht dabei verloren.' 'Grau'
+        Melde '  Auf Wunsch merkt sich das Script, welche Titel dazugehoeren.' 'Grau'
+        Melde '  Beim USB-Export kannst du sie dann als Ordner zusammenstellen.' 'Grau'
+        Write-Host ''
+        $antwortMerken = (Read-Host '  Playlist merken? (J/n)').Trim()
+        $playlistMerken = ($antwortMerken -eq '' -or $antwortMerken -match '^[jJyY]')
+
+        if ($playlistMerken) {
+            $playlistName = (Read-Host '  Name fuer die Playlist').Trim()
+            if ([string]::IsNullOrWhiteSpace($playlistName)) {
+                $playlistName = 'Playlist-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+            }
         }
     }
 
@@ -1375,6 +1715,27 @@ function Menue-Link {
         if (Fuege-ZurWarteschlange -Typ $typ -Beschreibung $beschreibung -Abfrage $eingabe) {
             Melde '  In die Warteschlange gelegt (Menuepunkt W).' 'Gut'
         }
+
+        # Das Merken haengt nicht am Download - die Songliste kommt von
+        # Spotify und laesst sich sofort holen, auch wenn das Audio erst
+        # spaeter aus der Warteschlange geladen wird.
+        if ($playlistMerken) {
+            Write-Host ''
+            Melde '  Hole die Songliste zum Merken ...' 'Grau'
+
+            $tempListe = Join-Path $env:TEMP ('playlist-' + [guid]::NewGuid().ToString('N') + '.spotdl')
+            [void](Fuehre-SpotdlSaveAus -Abfrage $eingabe -ZielDatei $tempListe `
+                                        -Threads ([int]$Konfig.Threads) -Beschriftung 'Titel  ')
+
+            if (Merke-Playlist -Name $playlistName -SpotdlDatei $tempListe -Quelle $eingabe) {
+                Melde ("  Playlist '{0}' gemerkt." -f $playlistName) 'Gut'
+            } else {
+                Melde '  Playlist konnte nicht gemerkt werden.' 'Warnung'
+            }
+
+            Remove-Item $tempListe -ErrorAction SilentlyContinue
+        }
+
         Warte-AufTaste
         return
     }
@@ -1393,14 +1754,41 @@ function Menue-Link {
     $dauer = (Get-Date) - $start
 
     Write-Host ''
-    if ($ergebnis.NeueDateien -gt 0) {
-        Melde ("  Fertig: {0} Datei(en) in {1:hh\:mm\:ss}." -f $ergebnis.NeueDateien, $dauer) 'Gut'
+    $abgedeckt = $ergebnis.NeueDateien
+    if ($null -ne $ergebnis.Uebersprungen) { $abgedeckt += $ergebnis.Uebersprungen }
+
+    if ($ergebnis.Erfolg -and $abgedeckt -gt 0) {
+        if ($ergebnis.NeueDateien -gt 0) {
+            Melde ("  Fertig: {0} Datei(en) in {1:hh\:mm\:ss}." -f $ergebnis.NeueDateien, $dauer) 'Gut'
+        } else {
+            Melde ("  Bereits vorhanden - {0} Datei(en) uebersprungen." -f $ergebnis.Uebersprungen) 'Gut'
+        }
         if ($istSpotify -or -not $istLink) { Merke-ImArchiv -Eintrag $eingabe -Konfig $Konfig }
-        Schreibe-Log "OK: $eingabe" 'OK'
+        Schreibe-Log "OK: $eingabe ($($ergebnis.NeueDateien) neu, $($ergebnis.Uebersprungen) vorhanden)" 'OK'
     } else {
-        Melde '  Keine neue Datei entstanden.' 'Warnung'
+        Melde ("  Nichts geladen - kein Treffer oder Fehler (Exit {0})." -f $ergebnis.ExitCode) 'Warnung'
         Schreibe-Log "Ohne Ergebnis: $eingabe (Exit $($ergebnis.ExitCode))" 'WARN'
     }
+
+    # --- Playlist merken ----------------------------------------------------
+    if ($playlistMerken) {
+        Write-Host ''
+        Melde '  Hole die Songliste zum Merken ...' 'Grau'
+
+        $tempListe = Join-Path $env:TEMP ('playlist-' + [guid]::NewGuid().ToString('N') + '.spotdl')
+        [void](Fuehre-SpotdlSaveAus -Abfrage $eingabe -ZielDatei $tempListe `
+                                    -Threads ([int]$Konfig.Threads) -Beschriftung 'Titel  ')
+
+        if (Merke-Playlist -Name $playlistName -SpotdlDatei $tempListe -Quelle $eingabe) {
+            Melde ("  Playlist '{0}' gemerkt." -f $playlistName) 'Gut'
+            Melde '  Zusammenstellen beim USB-Export (Menuepunkt U).' 'Grau'
+        } else {
+            Melde '  Playlist konnte nicht gemerkt werden.' 'Warnung'
+        }
+
+        Remove-Item $tempListe -ErrorAction SilentlyContinue
+    }
+
     Warte-AufTaste
 }
 
@@ -1600,6 +1988,7 @@ function Menue-KanalPlaylists {
 
     # --- Download -----------------------------------------------------------
     $erfolgreich = 0
+    $vorhanden = 0
     $ohneErgebnis = 0
     $dateienGesamt = 0
     $nummer = 0
@@ -1624,13 +2013,17 @@ function Menue-KanalPlaylists {
         $ergebnis = Hole-MitYtdlp -Konfig $Konfig -Adresse $p.Url -AlsPlaylist $true `
                                   -ZielMuster $muster -Soll $sollPlaylist
 
-        if ($ergebnis.NeueDateien -gt 0) {
-            Melde ("  OK - {0} Datei(en)" -f $ergebnis.NeueDateien) 'Gut'
+        if ($ergebnis.Erfolg -and $ergebnis.NeueDateien -gt 0) {
+            Melde ("  OK - {0} neue Datei(en)" -f $ergebnis.NeueDateien) 'Gut'
             $erfolgreich++
             $dateienGesamt += $ergebnis.NeueDateien
             Schreibe-Log "Playlist OK: $($p.Titel) ($($ergebnis.NeueDateien) Dateien)" 'OK'
+        } elseif ($ergebnis.Erfolg -and $ergebnis.Uebersprungen -gt 0) {
+            Melde ("  Bereits vorhanden - {0} Titel uebersprungen." -f $ergebnis.Uebersprungen) 'Grau'
+            $vorhanden++
+            Schreibe-Log "Playlist vorhanden: $($p.Titel)" 'INFO'
         } else {
-            Melde '  Keine neuen Dateien (schon vorhanden oder Fehler).' 'Warnung'
+            Melde ("  Fehler oder kein verwertbarer Titel (Exit {0})." -f $ergebnis.ExitCode) 'Warnung'
             $ohneErgebnis++
             Schreibe-Log "Playlist ohne Ergebnis: $($p.Titel) (Exit $($ergebnis.ExitCode))" 'WARN'
         }
@@ -1642,16 +2035,17 @@ function Menue-KanalPlaylists {
     Zeige-Linie '='
     Melde '  Bilanz' 'Titel'
     Zeige-Linie '='
-    Melde ("  Playlists mit Ergebnis : {0}" -f $erfolgreich) 'Gut'
+    Melde ("  Neu geladen        : {0}" -f $erfolgreich) 'Gut'
+    Melde ("  Bereits vorhanden  : {0}" -f $vorhanden) 'Grau'
     if ($ohneErgebnis -gt 0) {
-        Melde ("  Playlists ohne Ergebnis: {0}" -f $ohneErgebnis) 'Warnung'
+        Melde ("  Fehler             : {0}" -f $ohneErgebnis) 'Warnung'
     } else {
-        Melde '  Playlists ohne Ergebnis: 0'
+        Melde '  Fehler             : 0'
     }
-    Melde ("  Neue Dateien           : {0}" -f $dateienGesamt) 'Gut'
-    Melde ("  Laufzeit               : {0:hh\:mm\:ss}" -f $dauer) 'Grau'
+    Melde ("  Neue Dateien       : {0}" -f $dateienGesamt) 'Gut'
+    Melde ("  Laufzeit           : {0:hh\:mm\:ss}" -f $dauer) 'Grau'
 
-    Schreibe-Log "Kanallauf: $dateienGesamt Dateien aus $erfolgreich Playlists." 'INFO'
+    Schreibe-Log "Kanallauf: $dateienGesamt Dateien aus $erfolgreich Playlists, $vorhanden vorhanden, $ohneErgebnis Fehler." 'INFO'
     Warte-AufTaste
 }
 
@@ -1723,21 +2117,35 @@ function Fuehre-SpotdlSaveAus {
     $errDatei = Join-Path $env:TEMP ('spotdl-save-err-' + [guid]::NewGuid().ToString('N') + '.txt')
 
     # Start-Process nimmt in PowerShell 5.1 nur eine Zeichenkette entgegen und
-    # quotet nicht selbst. Anfuehrungszeichen im Argument wuerden den Aufruf
-    # zerlegen, deshalb hier nach Windows-Konvention escapen.
+    # quotet nicht selbst. Windows-Regel: Backslashes unmittelbar vor einem
+    # Anfuehrungszeichen muessen verdoppelt werden, das Anfuehrungszeichen
+    # selbst wird mit Backslash escaped. Sonst zerlegt es die Kommandozeile.
     function Schuetze-Argument {
         param([string]$Wert)
-        return '"' + ($Wert -replace '"', '\"') + '"'
+        # Null oder mehr Backslashes vor einem ": Backslashes verdoppeln,
+        # dann \" - gilt auch fuer nackte Anfuehrungszeichen ohne Backslash
+        $w = $Wert -replace '(\\*)"', '$1$1\"'
+        # Backslash-Folgen am Ende verdoppeln (stehen dann vor dem schliessenden ")
+        $w = $w -replace '(\\+)$', '$1$1'
+        return '"' + $w + '"'
     }
 
     $argZeile = 'save {0} --save-file {1} --threads {2}' -f `
                 (Schuetze-Argument $Abfrage), (Schuetze-Argument $ZielDatei), [int]$Threads
     if ($AlbumTyp) { $argZeile += (' --album-type {0}' -f $AlbumTyp) }
 
-    $prozess = Start-Process -FilePath 'spotdl' -ArgumentList $argZeile `
-                             -NoNewWindow -PassThru `
-                             -RedirectStandardOutput $outDatei `
-                             -RedirectStandardError  $errDatei
+    try {
+        $prozess = Start-Process -FilePath 'spotdl' -ArgumentList $argZeile `
+                                 -NoNewWindow -PassThru `
+                                 -RedirectStandardOutput $outDatei `
+                                 -RedirectStandardError  $errDatei `
+                                 -ErrorAction Stop
+    } catch {
+        Melde "  spotdl konnte nicht gestartet werden: $($_.Exception.Message)" 'Fehler'
+        Schreibe-Log "spotdl save Startfehler: $($_.Exception.Message)" 'FEHLER'
+        Remove-Item $outDatei, $errDatei -ErrorAction SilentlyContinue
+        return $false
+    }
 
     $uhr = [System.Diagnostics.Stopwatch]::StartNew()
     $drehfeld = '|/-\'
@@ -2464,6 +2872,25 @@ function Menue-UsbStick {
         if ($weiter -notmatch '^[jJyY]') { return }
     }
 
+    # --- Was soll auf den Stick? --------------------------------------------
+    $gemerkte = Lese-GemerktePlaylists
+
+    $modus = 'alben'
+    if ($gemerkte.Count -gt 0) {
+        Write-Host ''
+        Melde '  Was soll auf den Stick?' 'Titel'
+        Melde '    [1]  Alben aus der Sammlung auswaehlen'
+        Melde ("    [2]  Gemerkte Playlist zusammenstellen ({0} vorhanden)" -f $gemerkte.Count)
+        Write-Host ''
+        $wahlModus = (Read-Host '  Auswahl [1]').Trim()
+        if ($wahlModus -eq '2') { $modus = 'playlist' }
+    }
+
+    if ($modus -eq 'playlist') {
+        Menue-UsbPlaylist -Konfig $Konfig -Stick $stick -Gemerkte $gemerkte
+        return
+    }
+
     # --- Alben der Sammlung einsammeln --------------------------------------
     Write-Host ''
     Melde '  Lese die Sammlung ein ...' 'Grau'
@@ -2660,6 +3087,161 @@ function Menue-UsbStick {
     Warte-AufTaste
 }
 
+function Menue-UsbPlaylist {
+    <#
+      Stellt eine gemerkte Playlist auf dem Stick zusammen: sucht die Dateien
+      in der Sammlung, kopiert sie flach und nummeriert in einen eigenen
+      Ordner. Die Sammlung selbst bleibt unberuehrt.
+    #>
+    param($Konfig, $Stick, $Gemerkte)
+
+    $stickPfad = $Stick.DeviceID + '\'
+
+    # --- Playlist auswaehlen ------------------------------------------------
+    Clear-Host
+    Zeige-Linie '='
+    Melde '  Gemerkte Playlists' 'Titel'
+    Zeige-Linie '='
+    Write-Host ''
+    for ($i = 0; $i -lt $Gemerkte.Count; $i++) {
+        $p = $Gemerkte[$i]
+        Melde ("    [{0}]  {1}" -f ($i + 1), $p.Name)
+        Melde ("         {0} Titel, gemerkt am {1}" -f $p.Anzahl, $p.Erstellt) 'Grau'
+    }
+    Write-Host ''
+
+    $wahl = (Read-Host '  Nummer (Enter bricht ab)').Trim()
+    $nummer = 0
+    if (-not [int]::TryParse($wahl, [ref]$nummer)) { return }
+    if ($nummer -lt 1 -or $nummer -gt $Gemerkte.Count) { return }
+
+    $playlist = $Gemerkte[$nummer - 1]
+
+    # --- Dateien in der Sammlung suchen -------------------------------------
+    Write-Host ''
+    Melde '  Suche die Titel in der Sammlung ...' 'Grau'
+
+    $treffer = Finde-PlaylistDateien -Playlist $playlist -Zielordner (Loese-Zielordner $Konfig)
+
+    Write-Host ''
+    Zeige-Linie '='
+    Melde ("  {0}" -f $playlist.Name) 'Titel'
+    Zeige-Linie '='
+    Melde ("  Gefunden : {0} von {1}" -f $treffer.Gefunden.Count, $playlist.Anzahl) 'Gut'
+
+    if ($treffer.Fehlend.Count -gt 0) {
+        Melde ("  Fehlend  : {0}" -f $treffer.Fehlend.Count) 'Warnung'
+        Write-Host ''
+        Melde '  Diese Titel liegen nicht in der Sammlung:' 'Warnung'
+        foreach ($f in ($treffer.Fehlend | Select-Object -First 15)) {
+            Melde ("    {0,3}. {1} - {2}" -f $f.Position, $f.Interpret, (Kuerze-Text -Text $f.Titel -Laenge 40)) 'Grau'
+        }
+        if ($treffer.Fehlend.Count -gt 15) {
+            Melde ("    ... und {0} weitere" -f ($treffer.Fehlend.Count - 15)) 'Grau'
+        }
+        Write-Host ''
+        Melde '  Moegliche Gruende: noch nicht geladen, oder Interpret/Titel' 'Grau'
+        Melde '  weichen nach dem Tagging ab (Remaster, Live-Fassung, Featuring).' 'Grau'
+    }
+
+    if ($treffer.Mehrdeutig.Count -gt 0) {
+        Write-Host ''
+        Melde ("  Unsicher : {0}  (nur ueber den Titel gefunden, mehrere Kandidaten)" -f $treffer.Mehrdeutig.Count) 'Warnung'
+        foreach ($m in ($treffer.Mehrdeutig | Select-Object -First 10)) {
+            Melde ("    {0,3}. {1} - {2}" -f $m.Position, $m.Interpret, (Kuerze-Text -Text $m.Titel -Laenge 35)) 'Grau'
+            Melde ("         -> {0}  ({1} Kandidaten)" -f (Kuerze-Text -Text $m.Gewaehlt -Laenge 60), $m.Anzahl) 'Grau'
+        }
+        Melde '  Der jeweils erste Kandidat wird genommen - bitte pruefen.' 'Grau'
+    }
+
+    if ($treffer.Gefunden.Count -eq 0) {
+        Write-Host ''
+        Melde '  Nichts zu kopieren.' 'Fehler'
+        Warte-AufTaste
+        return
+    }
+
+    # --- Platz pruefen ------------------------------------------------------
+    $summeBytes = 0
+    foreach ($g in $treffer.Gefunden) { $summeBytes += $g.Datei.Length }
+
+    $frei = [double]$Stick.FreeSpace
+    if (($summeBytes + 50MB) -gt $frei) {
+        Write-Host ''
+        Melde ("  Zu wenig Platz: {0:N0} MB benoetigt, {1:N0} MB frei." -f `
+               ($summeBytes / 1MB), ($frei / 1MB)) 'Fehler'
+        Warte-AufTaste
+        return
+    }
+
+    Write-Host ''
+    Melde ("  Wird kopiert: {0} Titel, {1:N0} MB" -f $treffer.Gefunden.Count, ($summeBytes / 1MB))
+    $bestaetigung = Read-Host '  Los? (j/n)'
+    if ($bestaetigung -notmatch '^[jJyY]') { return }
+
+    # --- Kopieren -----------------------------------------------------------
+    $zielOrdner = Join-Path $stickPfad (Saeubere-Dateiname $playlist.Name)
+    if (-not (Test-Path $zielOrdner)) {
+        New-Item -Path $zielOrdner -ItemType Directory -Force | Out-Null
+    }
+
+    $kopiert = 0
+    $fehler  = 0
+    $lfd     = 0
+    $startZeit = Get-Date
+    $m3uZeilen = New-Object System.Collections.ArrayList
+
+    Write-Host ''
+    foreach ($g in $treffer.Gefunden) {
+        $lfd++
+
+        # Interpret voranstellen, damit im Autoradio erkennbar bleibt,
+        # von wem der Titel ist - die Ordnerstruktur faellt hier ja weg.
+        $rumpf = if ($g.Interpret) { '{0} - {1}' -f $g.Interpret, $g.Titel } else { $g.Titel }
+        $rumpf = Kuerze-Text -Text $rumpf -Laenge 90
+        $neuName = Saeubere-Dateiname ('{0:D3} - {1}{2}' -f $lfd, $rumpf, $g.Datei.Extension)
+
+        Write-Host ("`r  [{0}/{1}]  {2}" -f $lfd, $treffer.Gefunden.Count,
+                    (Kuerze-Text -Text $neuName -Laenge 50).PadRight(53)) -NoNewline
+
+        try {
+            Copy-Item -Path $g.Datei.FullName -Destination (Join-Path $zielOrdner $neuName) -Force
+            $kopiert++
+            [void]$m3uZeilen.Add((Join-Path (Saeubere-Dateiname $playlist.Name) $neuName))
+        } catch {
+            $fehler++
+            Schreibe-Log "Playlist-Kopie fehlgeschlagen: $($g.Datei.FullName)" 'FEHLER'
+        }
+    }
+
+    # M3U dazulegen - manche Radios lesen sie, kostet nichts
+    try {
+        $m3uInhalt = @('#EXTM3U') + @($m3uZeilen)
+        $m3uDatei = Join-Path $stickPfad ((Saeubere-Dateiname $playlist.Name) + '.m3u')
+        Set-Content -Path $m3uDatei -Value $m3uInhalt -Encoding Default
+    } catch { }
+
+    $dauer = (Get-Date) - $startZeit
+
+    Write-Host ''
+    Write-Host ''
+    Zeige-Linie '='
+    Melde '  Bilanz' 'Titel'
+    Zeige-Linie '='
+    Melde ("  Kopiert  : {0}" -f $kopiert) 'Gut'
+    if ($treffer.Fehlend.Count -gt 0) {
+        Melde ("  Fehlend  : {0}  (nicht in der Sammlung)" -f $treffer.Fehlend.Count) 'Warnung'
+    }
+    if ($fehler -gt 0) { Melde ("  Fehler   : {0}" -f $fehler) 'Fehler' }
+    Melde ("  Ordner   : {0}" -f $zielOrdner) 'Grau'
+    Melde ("  Dauer    : {0:hh\:mm\:ss}" -f $dauer) 'Grau'
+    Write-Host ''
+    Melde '  Stick ueber "Hardware sicher entfernen" auswerfen.' 'Warnung'
+
+    Schreibe-Log ("USB-Playlist '{0}': {1} kopiert, {2} fehlend." -f $playlist.Name, $kopiert, $treffer.Fehlend.Count) 'INFO'
+    Warte-AufTaste
+}
+
 # =============================================================================
 #  MENUEPUNKT W  --  WARTESCHLANGE
 # =============================================================================
@@ -2737,7 +3319,13 @@ function Verarbeite-Warteschlangeneintrag {
         }
         default {
             Melde ("  Unbekannter Typ '{0}' - uebersprungen." -f $Eintrag.Typ) 'Warnung'
-            return [pscustomobject]@{ Erfolg = $false; ExitCode = -1; NeueDateien = 0 }
+            return [pscustomobject]@{
+            Erfolg         = $false
+            ExitCode       = -1
+            NeueDateien    = 0
+            Uebersprungen  = 0
+            Ermittlungsart = 'Nicht gestartet'
+        }
         }
     }
 }
@@ -3304,7 +3892,7 @@ function Zeige-Hauptmenue {
     Melde '     [8]  Werkzeuge aktualisieren'
     Melde '     [9]  Einstellungen'
     Melde '     [A]  Archiv'
-    Melde '     [U]  USB-Stick bestuecken - Alben auf den Stick fuers Auto'
+    Melde '     [U]  USB-Stick bestuecken - Alben oder gemerkte Playlist auf den Stick'
     Melde '     [W]  Warteschlange        - gesammelte Auftraege abarbeiten'
     Melde '     [B]  Bestandsabgleich     - was fehlt aus gespeicherten Diskografien?' 'Titel'
     Melde '     [P]  Sammlung pruefen     - Reste und auffaellig kleine Dateien' 'Titel'
