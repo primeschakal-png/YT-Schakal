@@ -11,6 +11,22 @@ vernuenftige Bedienoberflaeche.
 
 ## [Unveroeffentlicht]
 
+### Geaendert
+- Menuepunkt 3 (Link laden) nennt jetzt ausdruecklich, dass Spotify-Playlists
+  unterstuetzt werden — vorher stand dort nur "Spotify", was den Eindruck
+  erwecken konnte, nur Tracks und Alben seien gemeint. Verweist zusaetzlich
+  auf Menuepunkt 5 fuer ganze Kuenstler-Diskografien.
+- Landet ein Playlist- oder Track-Link versehentlich in Menuepunkt 5
+  (Diskografie), kommt jetzt ein gezielter Hinweis auf Menuepunkt 3 statt der
+  allgemeinen "kein Spotify-Link"-Meldung mit Suchvorschlag.
+
+### Bekannter Fehler
+- Nach dem Abarbeiten der Warteschlange (Taste `S`) muss zweimal eine Taste
+  gedrueckt werden, bevor es zurueck ins Hauptmenue geht: einmal fuer die
+  Bilanzanzeige, danach laeuft die Menueschleife erneut an, findet die jetzt
+  leere Warteschlange und fragt ein zweites Mal. Kein Datenverlust, nur ein
+  ueberfluessiger Tastendruck. Bleibt vorerst so.
+
 ### Behoben
 - `Start-Process` beim Metadaten-Abruf bekommt Argumente jetzt korrekt
   geschuetzt. Anfuehrungszeichen in Pfaden oder Kuenstlernamen konnten die
