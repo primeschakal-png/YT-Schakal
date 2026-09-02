@@ -1,7 +1,7 @@
 <#
 ===============================================================================
   YT-Schakal  --  Menuegesteuerter Downloader fuer spotdl und yt-dlp
-  Version 2  --  mit Kanal-Playlist-Extractor
+  Versionsverlauf siehe CHANGELOG.md
 ===============================================================================
   Start ueber YT-Schakal.bat (Doppelklick) oder direkt:
       powershell -ExecutionPolicy Bypass -File .\YT-Schakal.ps1
@@ -29,6 +29,9 @@ try {
 
 $ErrorActionPreference = 'Continue'
 
+# Bei jeder nennenswerten Aenderung hochzaehlen und im CHANGELOG eintragen.
+$Version = '1.3.0'
+
 # =============================================================================
 #  PFADE
 # =============================================================================
@@ -52,6 +55,48 @@ $DateiListe         = Join-Path $Basis 'wunschliste.txt'
 # Frueh anlegen - sonst laufen die ersten Logzeilen ins Leere.
 if (-not (Test-Path $OrdnerData)) {
     try { New-Item -Path $OrdnerData -ItemType Directory -Force | Out-Null } catch { }
+}
+
+# --- Einmalige Migration aus dem alten Layout -------------------------------
+# Bis Version 1.2 lagen diese Dateien direkt neben dem Script. Wer aktualisiert,
+# soll Archiv, Einstellungen und Caches behalten statt neu anzufangen.
+$altNeu = @(
+    @{ Alt = 'einstellungen.json'; Neu = $DateiEinstellungen },
+    @{ Alt = 'archiv.txt';         Neu = $DateiArchiv },
+    @{ Alt = 'archiv-yt.txt';      Neu = $DateiArchivYT },
+    @{ Alt = 'warteschlange.txt';  Neu = $DateiQueue },
+    @{ Alt = 'log.txt';            Neu = $DateiLog },
+    @{ Alt = 'sync';               Neu = $OrdnerSync },
+    @{ Alt = 'diskografie';        Neu = $OrdnerDiskografie }
+)
+
+$verschoben = 0
+foreach ($paar in $altNeu) {
+    $quelle = Join-Path $Basis $paar.Alt
+    # Nur verschieben, wenn es die Quelle gibt und das Ziel noch frei ist
+    if ((Test-Path $quelle) -and -not (Test-Path $paar.Neu)) {
+        try {
+            Move-Item -Path $quelle -Destination $paar.Neu -ErrorAction Stop
+            $verschoben++
+        } catch { }
+    }
+}
+
+if ($verschoben -gt 0) {
+    Write-Host ''
+    Write-Host ("  {0} Datei(en)/Ordner aus dem alten Layout nach data\ verschoben." -f $verschoben) -ForegroundColor Green
+    Write-Host '  Einstellungen, Archiv und Zwischenspeicher bleiben erhalten.' -ForegroundColor DarkGray
+    Write-Host ''
+}
+
+# Alte liste.txt heisst jetzt wunschliste.txt
+$alteListe = Join-Path $Basis 'liste.txt'
+if ((Test-Path $alteListe) -and -not (Test-Path $DateiListe)) {
+    try {
+        Move-Item -Path $alteListe -Destination $DateiListe -ErrorAction Stop
+        Write-Host '  liste.txt wurde zu wunschliste.txt umbenannt.' -ForegroundColor Green
+        Write-Host ''
+    } catch { }
 }
 
 # =============================================================================
@@ -184,6 +229,61 @@ function Lade-Einstellungen {
     $neu = [ordered]@{}
     foreach ($schluessel in $Standard.Keys) { $neu[$schluessel] = $Standard[$schluessel] }
     return $neu
+}
+
+function Pruefe-Einstellungen {
+    <#
+      Faengt unsinnige Werte ab, die von Hand in die JSON geraten sind.
+      Setzt sie auf den Standard zurueck und sagt, was korrigiert wurde.
+    #>
+    param($Konfig)
+
+    $korrekturen = New-Object System.Collections.ArrayList
+
+    $erlaubteFormate = @('mp3','flac','opus','m4a','ogg','wav')
+    if ($Konfig.Format -notin $erlaubteFormate) {
+        [void]$korrekturen.Add(("Format '{0}' unbekannt -> {1}" -f $Konfig.Format, $Standard.Format))
+        $Konfig.Format = $Standard.Format
+    }
+
+    if ($Konfig.Bitrate -and $Konfig.Bitrate -ne 'disable' -and
+        $Konfig.Bitrate -notmatch '^\d{2,4}k$') {
+        [void]$korrekturen.Add(("Bitrate '{0}' ungueltig -> {1}" -f $Konfig.Bitrate, $Standard.Bitrate))
+        $Konfig.Bitrate = $Standard.Bitrate
+    }
+
+    $zahl = 0
+    if (-not [int]::TryParse([string]$Konfig.Threads, [ref]$zahl) -or $zahl -lt 1 -or $zahl -gt 8) {
+        [void]$korrekturen.Add(("Threads '{0}' ausserhalb 1-8 -> {1}" -f $Konfig.Threads, $Standard.Threads))
+        $Konfig.Threads = $Standard.Threads
+    } else {
+        $Konfig.Threads = $zahl
+    }
+
+    if ([string]::IsNullOrWhiteSpace([string]$Konfig.Namensschema) -or
+        [string]$Konfig.Namensschema -notmatch '\{title\}') {
+        [void]$korrekturen.Add('Namensschema ohne {title} -> Standard')
+        $Konfig.Namensschema = $Standard.Namensschema
+    }
+
+    # Schalter muessen echte Wahrheitswerte sein
+    foreach ($feld in @('LyricsHolen','ArchivNutzen','NurVerifiziert','PlaylistOrdner','Nachtmodus','LogAusfuehrlich')) {
+        if ($Konfig[$feld] -isnot [bool]) {
+            $Konfig[$feld] = [bool]$Konfig[$feld]
+        }
+    }
+
+    if ($korrekturen.Count -gt 0) {
+        Write-Host ''
+        Melde '  Einstellungen korrigiert:' 'Warnung'
+        foreach ($k in $korrekturen) {
+            Melde "    $k" 'Grau'
+            Schreibe-Log ("Einstellung korrigiert: {0}" -f $k) 'WARN'
+        }
+        Write-Host ''
+    }
+
+    return $Konfig
 }
 
 function Speichere-Einstellungen {
@@ -402,6 +502,119 @@ function Protokolliere-Werkzeugausgabe {
     }
 }
 
+function Zaehle-AusAusgabe {
+    <#
+      Ermittelt aus der Ausgabe von spotdl bzw. yt-dlp, wie viele Titel
+      neu geladen und wie viele als vorhanden uebersprungen wurden.
+
+      Gibt ein Objekt mit Neu und Uebersprungen zurueck, oder $null, wenn
+      sich nichts Verwertbares finden liess - dann faellt der Aufrufer auf
+      die Dateisuche zurueck. Das ist wichtig, weil sich die Ausgabeformate
+      zwischen Versionen aendern koennen.
+    #>
+    param($Ausgabe, [string]$Quelle)
+
+    if (-not $Ausgabe) { return $null }
+
+    $neu = 0
+    $uebersprungen = 0
+    $erkannt = $false
+
+    foreach ($z in @($Ausgabe)) {
+        $text = ([string]$z) -replace "`e\[[0-9;]*m", ''
+        if (-not $text.Trim()) { continue }
+
+        if ($Quelle -eq 'spotdl') {
+            if ($text -match '^\s*Downloaded\s')                     { $neu++; $erkannt = $true }
+            elseif ($text -match 'Skipping .* \(file already exists') { $uebersprungen++; $erkannt = $true }
+        }
+        else {
+            if ($text -match '^\[(ExtractAudio|Merger)\] Destination:')      { $neu++; $erkannt = $true }
+            elseif ($text -match 'has already been downloaded')             { $uebersprungen++; $erkannt = $true }
+            elseif ($text -match 'has already been recorded in the archive') { $uebersprungen++; $erkannt = $true }
+        }
+    }
+
+    if (-not $erkannt) { return $null }
+    return [pscustomobject]@{ Neu = $neu; Uebersprungen = $uebersprungen }
+}
+
+function Zaehle-NeueSeit {
+    <#
+      Zaehlt Audiodateien, die seit einem Zeitpunkt geschrieben wurden.
+      Braucht keinen Vorher-Wert und damit auch keinen zweiten Vollscan.
+    #>
+    param([string]$Ordner, [datetime]$Seit)
+
+    if (-not (Test-Path $Ordner)) { return 0 }
+    $endungen = @('.mp3','.m4a','.flac','.ogg','.opus','.wav')
+
+    return @(Get-ChildItem -Path $Ordner -File -Recurse -ErrorAction SilentlyContinue |
+             Where-Object { $endungen -contains $_.Extension.ToLower() -and $_.LastWriteTime -ge $Seit }).Count
+}
+
+function Ermittle-Ergebnis {
+    <#
+      Bevorzugt die Ausgabe der Werkzeuge - das ist schnell und braucht
+      keinen Verzeichnisdurchlauf.
+
+      Zwei Faelle fuehren zur Gegenprobe im Dateisystem:
+        1. Das Ausgabeformat wurde gar nicht erkannt (Werkzeug aktualisiert)
+        2. Die Ausgabe meldet weniger als erwartet - dann kann statt eines
+           fehlenden Titels auch eine Abschlusszeile in unbekanntem Format
+           vorliegen. Betrifft Alben und Playlists, wo die Teilzahl ueber
+           die Archivierung entscheidet.
+      Bei vollstaendigem Ergebnis wird nicht nachgezaehlt.
+
+      Liefert immer ein Objekt mit:
+        Neu            - geladene Titel
+        Uebersprungen  - waren schon vorhanden
+        Ermittlungsart - 'Toolausgabe' (aus den Konsolenzeilen gelesen) oder
+                         'Zeitstempel' (im Dateisystem nachgezaehlt)
+    #>
+    param(
+        $Ausgabe,
+        [string]$Quelle,
+        [datetime]$Startzeit,
+        [string]$Zielordner,
+        [int]$Soll = 0
+    )
+
+    $ausAusgabe = Zaehle-AusAusgabe -Ausgabe $Ausgabe -Quelle $Quelle
+
+    if ($null -ne $ausAusgabe) {
+        $abgedeckt = $ausAusgabe.Neu + $ausAusgabe.Uebersprungen
+
+        # Gegenprobe nur bei bekanntem Soll und gemeldetem Fehlbetrag
+        if ($Soll -gt 0 -and $abgedeckt -lt $Soll) {
+            $imDateisystem = Zaehle-NeueSeit -Ordner $Zielordner -Seit $Startzeit
+
+            if ($imDateisystem -gt $ausAusgabe.Neu) {
+                Schreibe-Log ("Gegenprobe: Ausgabe meldete {0} von {1}, im Dateisystem liegen {2} - nehme den hoeheren Wert" -f `
+                              $abgedeckt, $Soll, $imDateisystem) 'WARN'
+                return [pscustomobject]@{
+                    Neu            = $imDateisystem
+                    Uebersprungen  = $ausAusgabe.Uebersprungen
+                    Ermittlungsart = 'Zeitstempel'
+                }
+            }
+        }
+
+        return [pscustomobject]@{
+            Neu            = $ausAusgabe.Neu
+            Uebersprungen  = $ausAusgabe.Uebersprungen
+            Ermittlungsart = 'Toolausgabe'
+        }
+    }
+
+    Schreibe-Log ("Ausgabe von {0} nicht auswertbar - suche nach Zeitstempel" -f $Quelle) 'WARN'
+    return [pscustomobject]@{
+        Neu            = (Zaehle-NeueSeit -Ordner $Zielordner -Seit $Startzeit)
+        Uebersprungen  = 0
+        Ermittlungsart = 'Zeitstempel'
+    }
+}
+
 function Baue-SpotdlArgumente {
     param($Konfig, [string]$Befehl, [string]$Abfrage)
 
@@ -445,9 +658,8 @@ function Baue-SpotdlArgumente {
 }
 
 function Hole-MitSpotdl {
-    param($Konfig, [string]$Abfrage, [string]$Befehl = 'download')
+    param($Konfig, [string]$Abfrage, [string]$Befehl = 'download', [int]$Soll = 0)
 
-    $vorher = Zaehle-Audiodateien (Loese-Zielordner $Konfig)
     $argumente = Baue-SpotdlArgumente -Konfig $Konfig -Befehl $Befehl -Abfrage $Abfrage
 
     Melde ("  -> spotdl {0}" -f ($argumente -join ' ')) 'Grau'
@@ -465,16 +677,20 @@ function Hole-MitSpotdl {
 
     Protokolliere-Werkzeugausgabe -Konfig $Konfig -Ausgabe $rohAusgabe -Quelle 'spotdl'
 
-    $nachher = Zaehle-Audiodateien (Loese-Zielordner $Konfig)
+    $ergebnis = Ermittle-Ergebnis -Ausgabe $rohAusgabe -Quelle 'spotdl' `
+                                  -Startzeit $start -Zielordner (Loese-Zielordner $Konfig) `
+                                  -Soll $Soll
     $dauer = (Get-Date) - $start
 
-    Schreibe-Log ("spotdl beendet: Exit {0}, {1} neue Datei(en), {2:mm\:ss} Laufzeit" -f `
-                  $code, ($nachher - $vorher), $dauer) 'INFO'
+    Schreibe-Log ("spotdl beendet: Exit {0}, {1} neu, {2} uebersprungen, {3:mm\:ss} Laufzeit" -f `
+                  $code, $ergebnis.Neu, $ergebnis.Uebersprungen, $dauer) 'INFO'
 
     return [pscustomobject]@{
-        Erfolg      = ($code -eq 0)
-        ExitCode    = $code
-        NeueDateien = ($nachher - $vorher)
+        Erfolg        = ($code -eq 0)
+        ExitCode      = $code
+        NeueDateien   = $ergebnis.Neu
+        Uebersprungen = $ergebnis.Uebersprungen
+        Ermittlungsart = $ergebnis.Ermittlungsart
     }
 }
 
@@ -519,14 +735,13 @@ function Baue-YtdlpBasisArgumente {
 }
 
 function Hole-MitYtdlp {
-    param($Konfig, [string]$Adresse, [bool]$AlsPlaylist = $false, [string]$ZielMuster = '')
+    param($Konfig, [string]$Adresse, [bool]$AlsPlaylist = $false, [string]$ZielMuster = '', [int]$Soll = 0)
 
     if (-not (Get-Command yt-dlp -ErrorAction SilentlyContinue)) {
         Melde '  yt-dlp ist nicht installiert.  Abhilfe:  pip install yt-dlp' 'Fehler'
         return [pscustomobject]@{ Erfolg = $false; ExitCode = -1; NeueDateien = 0 }
     }
 
-    $vorher = Zaehle-Audiodateien (Loese-Zielordner $Konfig)
 
     if ([string]::IsNullOrWhiteSpace($ZielMuster)) {
         $ZielMuster = Join-Path (Loese-Zielordner $Konfig) '%(artist,uploader)s\%(album,playlist_title|Einzeltitel)s\%(title)s.%(ext)s'
@@ -555,16 +770,20 @@ function Hole-MitYtdlp {
 
     Protokolliere-Werkzeugausgabe -Konfig $Konfig -Ausgabe $rohAusgabe -Quelle 'yt-dlp'
 
-    $nachher = Zaehle-Audiodateien (Loese-Zielordner $Konfig)
+    $ergebnis = Ermittle-Ergebnis -Ausgabe $rohAusgabe -Quelle 'yt-dlp' `
+                                  -Startzeit $start -Zielordner (Loese-Zielordner $Konfig) `
+                                  -Soll $Soll
     $dauer = (Get-Date) - $start
 
-    Schreibe-Log ("yt-dlp beendet: Exit {0}, {1} neue Datei(en), {2:mm\:ss} Laufzeit" -f `
-                  $code, ($nachher - $vorher), $dauer) 'INFO'
+    Schreibe-Log ("yt-dlp beendet: Exit {0}, {1} neu, {2} uebersprungen, {3:mm\:ss} Laufzeit" -f `
+                  $code, $ergebnis.Neu, $ergebnis.Uebersprungen, $dauer) 'INFO'
 
     return [pscustomobject]@{
-        Erfolg      = ($code -eq 0)
-        ExitCode    = $code
-        NeueDateien = ($nachher - $vorher)
+        Erfolg        = ($code -eq 0)
+        ExitCode      = $code
+        NeueDateien   = $ergebnis.Neu
+        Uebersprungen = $ergebnis.Uebersprungen
+        Ermittlungsart = $ergebnis.Ermittlungsart
     }
 }
 
@@ -1188,6 +1407,38 @@ function Menue-Link {
 #  MENUEPUNKT 4  --  KANAL-PLAYLISTS
 # =============================================================================
 
+function Waehle-Kanal {
+    <#
+      Sucht Kanaele zu einem Suchbegriff und laesst den Nutzer einen
+      auswaehlen. Gibt die Kanal-URL zurueck oder $null bei Abbruch.
+    #>
+    param([string]$Suchbegriff)
+
+    Write-Host ''
+    $kanaele = Finde-Kanaele -Suchbegriff $Suchbegriff
+
+    if ($kanaele.Count -eq 0) {
+        Melde '  Kein Kanal gefunden.' 'Fehler'
+        return $null
+    }
+
+    Write-Host ''
+    Melde '  Gefundene Kanaele:' 'Titel'
+    Write-Host ''
+    for ($i = 0; $i -lt $kanaele.Count; $i++) {
+        Melde ("    [{0}]  {1}" -f ($i + 1), $kanaele[$i].Name)
+        Melde ("         {0}" -f $kanaele[$i].Url) 'Grau'
+    }
+    Write-Host ''
+
+    $wahl = (Read-Host '  Nummer (Enter bricht ab)').Trim()
+    $nummer = 0
+    if (-not [int]::TryParse($wahl, [ref]$nummer))    { return $null }
+    if ($nummer -lt 1 -or $nummer -gt $kanaele.Count) { return $null }
+
+    return $kanaele[$nummer - 1].Url
+}
+
 function Menue-KanalPlaylists {
     param($Konfig)
 
@@ -1215,30 +1466,8 @@ function Menue-KanalPlaylists {
         $kanalUrl = "https://www.youtube.com/$eingabe"
     }
     else {
-        Write-Host ''
-        $kanaele = Finde-Kanaele -Suchbegriff $eingabe
-
-        if ($kanaele.Count -eq 0) {
-            Melde '  Kein Kanal gefunden.' 'Fehler'
-            Warte-AufTaste
-            return
-        }
-
-        Write-Host ''
-        Melde '  Gefundene Kanaele:' 'Titel'
-        Write-Host ''
-        for ($i = 0; $i -lt $kanaele.Count; $i++) {
-            Melde ("    [{0}]  {1}" -f ($i + 1), $kanaele[$i].Name)
-            Melde ("         {0}" -f $kanaele[$i].Url) 'Grau'
-        }
-        Write-Host ''
-
-        $wahl = (Read-Host '  Nummer (Enter bricht ab)').Trim()
-        $nummer = 0
-        if (-not [int]::TryParse($wahl, [ref]$nummer)) { return }
-        if ($nummer -lt 1 -or $nummer -gt $kanaele.Count) { return }
-
-        $kanalUrl = $kanaele[$nummer - 1].Url
+        $kanalUrl = Waehle-Kanal -Suchbegriff $eingabe
+        if (-not $kanalUrl) { Warte-AufTaste; return }
         $ueberSucheGefunden = $true
     }
 
@@ -1273,30 +1502,8 @@ function Menue-KanalPlaylists {
         $weiter = Read-Host '  Kanal per Suche finden? (j/n)'
 
         if ($weiter -match '^[jJyY]') {
-            Write-Host ''
-            $kanaele = Finde-Kanaele -Suchbegriff $suchName
-
-            if ($kanaele.Count -eq 0) {
-                Melde '  Auch die Suche hat nichts gefunden.' 'Fehler'
-                Warte-AufTaste
-                return
-            }
-
-            Write-Host ''
-            Melde '  Gefundene Kanaele:' 'Titel'
-            Write-Host ''
-            for ($i = 0; $i -lt $kanaele.Count; $i++) {
-                Melde ("    [{0}]  {1}" -f ($i + 1), $kanaele[$i].Name)
-                Melde ("         {0}" -f $kanaele[$i].Url) 'Grau'
-            }
-            Write-Host ''
-
-            $wahl = (Read-Host '  Nummer (Enter bricht ab)').Trim()
-            $nummer = 0
-            if (-not [int]::TryParse($wahl, [ref]$nummer)) { return }
-            if ($nummer -lt 1 -or $nummer -gt $kanaele.Count) { return }
-
-            $kanalUrl = $kanaele[$nummer - 1].Url
+            $kanalUrl = Waehle-Kanal -Suchbegriff $suchName
+            if (-not $kanalUrl) { Warte-AufTaste; return }
             Write-Host ''
             $playlists = Hole-KanalPlaylists -KanalUrl $kanalUrl
         }
@@ -1411,7 +1618,10 @@ function Menue-KanalPlaylists {
             $muster = Join-Path (Loese-Zielordner $Konfig) '%(artist,uploader)s\%(playlist_title)s\%(title)s.%(ext)s'
         }
 
-        $ergebnis = Hole-MitYtdlp -Konfig $Konfig -Adresse $p.Url -AlsPlaylist $true -ZielMuster $muster
+        $sollPlaylist = 0
+        if ($p.Anzahl) { $sollPlaylist = [int]$p.Anzahl }
+        $ergebnis = Hole-MitYtdlp -Konfig $Konfig -Adresse $p.Url -AlsPlaylist $true `
+                                  -ZielMuster $muster -Soll $sollPlaylist
 
         if ($ergebnis.NeueDateien -gt 0) {
             Melde ("  OK - {0} Datei(en)" -f $ergebnis.NeueDateien) 'Gut'
@@ -1453,9 +1663,8 @@ function Hole-MitSpotdlMehrfach {
       Wie Hole-MitSpotdl, nimmt aber mehrere Abfragen (z.B. alle Song-URLs
       eines Albums) in einem einzigen spotdl-Aufruf entgegen.
     #>
-    param($Konfig, [string[]]$Abfragen)
+    param($Konfig, [string[]]$Abfragen, [int]$Soll = 0)
 
-    $vorher = Zaehle-Audiodateien (Loese-Zielordner $Konfig)
     $argumente = Baue-SpotdlArgumente -Konfig $Konfig -Befehl 'download' -Abfrage $null
 
     # Abfragen direkt hinter 'download' einreihen
@@ -1477,16 +1686,20 @@ function Hole-MitSpotdlMehrfach {
 
     Protokolliere-Werkzeugausgabe -Konfig $Konfig -Ausgabe $rohAusgabe -Quelle 'spotdl'
 
-    $nachher = Zaehle-Audiodateien (Loese-Zielordner $Konfig)
+    $ergebnis = Ermittle-Ergebnis -Ausgabe $rohAusgabe -Quelle 'spotdl' `
+                                  -Startzeit $start -Zielordner (Loese-Zielordner $Konfig) `
+                                  -Soll $Soll
     $dauer = (Get-Date) - $start
 
-    Schreibe-Log ("spotdl beendet: Exit {0}, {1} neue Datei(en), {2:mm\:ss} Laufzeit" -f `
-                  $code, ($nachher - $vorher), $dauer) 'INFO'
+    Schreibe-Log ("spotdl beendet: Exit {0}, {1} neu, {2} uebersprungen, {3:mm\:ss} Laufzeit" -f `
+                  $code, $ergebnis.Neu, $ergebnis.Uebersprungen, $dauer) 'INFO'
 
     return [pscustomobject]@{
-        Erfolg      = ($code -eq 0)
-        ExitCode    = $code
-        NeueDateien = ($nachher - $vorher)
+        Erfolg        = ($code -eq 0)
+        ExitCode      = $code
+        NeueDateien   = $ergebnis.Neu
+        Uebersprungen = $ergebnis.Uebersprungen
+        Ermittlungsart = $ergebnis.Ermittlungsart
     }
 }
 
@@ -1800,23 +2013,28 @@ function Menue-Diskografie {
             $abfragen = @($a.Urls | ForEach-Object { [string]$_ })
         }
 
-        $ergebnis = Hole-MitSpotdlMehrfach -Konfig $Konfig -Abfragen $abfragen
         $soll = $a.Urls.Count
+        $ergebnis = Hole-MitSpotdlMehrfach -Konfig $Konfig -Abfragen $abfragen -Soll $soll
+        $abgedeckt = $ergebnis.NeueDateien + $ergebnis.Uebersprungen
 
-        if ($ergebnis.NeueDateien -ge $soll -and $soll -gt 0) {
-            Melde ("  OK - {0} Datei(en), vollstaendig" -f $ergebnis.NeueDateien) 'Gut'
+        if ($abgedeckt -ge $soll -and $soll -gt 0) {
+            if ($ergebnis.NeueDateien -gt 0) {
+                Melde ("  OK - {0} neu, {1} waren vorhanden" -f $ergebnis.NeueDateien, $ergebnis.Uebersprungen) 'Gut'
+            } else {
+                Melde ("  Vollstaendig - alle {0} Titel waren bereits da" -f $soll) 'Gut'
+            }
             Merke-ImArchiv -Eintrag $archivEintrag -Konfig $Konfig
             $erfolgreich++
             $dateienGesamt += $ergebnis.NeueDateien
-            Schreibe-Log "Album OK: $($a.Name) ($($ergebnis.NeueDateien) Dateien)" 'OK'
+            Schreibe-Log "Album vollstaendig: $($a.Name) ($($ergebnis.NeueDateien) neu)" 'OK'
         } elseif ($ergebnis.NeueDateien -gt 0) {
-            Melde ("  Teilerfolg: {0} von {1} Titeln - NICHT archiviert." -f $ergebnis.NeueDateien, $soll) 'Warnung'
-            Melde '  Ein erneuter Lauf laedt die fehlenden nach (Vorhandenes wird uebersprungen).' 'Grau'
+            Melde ("  Teilerfolg: {0} von {1} Titeln - NICHT archiviert." -f $abgedeckt, $soll) 'Warnung'
+            Melde '  Ein erneuter Lauf laedt die fehlenden nach.' 'Grau'
             $erfolgreich++
             $dateienGesamt += $ergebnis.NeueDateien
-            Schreibe-Log "Album TEIL: $($a.Name) ($($ergebnis.NeueDateien)/$soll)" 'WARN'
+            Schreibe-Log "Album TEIL: $($a.Name) ($abgedeckt/$soll)" 'WARN'
         } else {
-            Melde '  Keine neuen Dateien (schon vorhanden oder Fehler).' 'Warnung'
+            Melde '  Nichts geladen - Fehler oder kein Treffer.' 'Warnung'
             $ohneErgebnis++
             Schreibe-Log "Album ohne Ergebnis: $($a.Name) (Exit $($ergebnis.ExitCode))" 'WARN'
         }
@@ -2481,7 +2699,7 @@ function Schreibe-Warteschlange {
 }
 
 function Verarbeite-Warteschlangeneintrag {
-    param($Konfig, $Eintrag)
+    param($Konfig, $Eintrag, [int]$Soll = 0)
 
     switch ($Eintrag.Typ) {
         'spotdl' {
@@ -2490,18 +2708,19 @@ function Verarbeite-Warteschlangeneintrag {
             } else {
                 $abfragen = @($Eintrag.Abfrage)
             }
-            return Hole-MitSpotdlMehrfach -Konfig $Konfig -Abfragen $abfragen
+            return Hole-MitSpotdlMehrfach -Konfig $Konfig -Abfragen $abfragen -Soll $Soll
         }
         'ytdlp' {
-            return Hole-MitYtdlp -Konfig $Konfig -Adresse $Eintrag.Abfrage -AlsPlaylist $false
+            return Hole-MitYtdlp -Konfig $Konfig -Adresse $Eintrag.Abfrage -AlsPlaylist $false -Soll $Soll
         }
         'ytdlp-playlist' {
-            return Hole-MitYtdlp -Konfig $Konfig -Adresse $Eintrag.Abfrage -AlsPlaylist $true
+            return Hole-MitYtdlp -Konfig $Konfig -Adresse $Eintrag.Abfrage -AlsPlaylist $true -Soll $Soll
         }
         'ytdlp-album' {
             $ordnerName = Saeubere-Dateiname $Eintrag.Beschreibung
             $muster = Join-Path (Loese-Zielordner $Konfig) ($ordnerName + '\%(playlist_index)03d - %(title)s.%(ext)s')
-            return Hole-MitYtdlp -Konfig $Konfig -Adresse $Eintrag.Abfrage -AlsPlaylist $true -ZielMuster $muster
+            return Hole-MitYtdlp -Konfig $Konfig -Adresse $Eintrag.Abfrage -AlsPlaylist $true `
+                                 -ZielMuster $muster -Soll $Soll
         }
         default {
             Melde ("  Unbekannter Typ '{0}' - uebersprungen." -f $Eintrag.Typ) 'Warnung'
@@ -2603,13 +2822,20 @@ function Menue-Warteschlange {
                 $soll = @($e.Abfrage -split '\s+' | Where-Object { $_ }).Count
             }
 
-            $ergebnis = Verarbeite-Warteschlangeneintrag -Konfig $Konfig -Eintrag $e
+            $ergebnis = Verarbeite-Warteschlangeneintrag -Konfig $Konfig -Eintrag $e -Soll $soll
 
-            $vollstaendig = if ($soll -gt 0) { $ergebnis.NeueDateien -ge $soll }
+            $abgedeckt = $ergebnis.NeueDateien
+            if ($null -ne $ergebnis.Uebersprungen) { $abgedeckt += $ergebnis.Uebersprungen }
+
+            $vollstaendig = if ($soll -gt 0) { $abgedeckt -ge $soll }
                             else             { $ergebnis.NeueDateien -gt 0 }
 
             if ($vollstaendig) {
-                Melde ("  OK - {0} Datei(en)" -f $ergebnis.NeueDateien) 'Gut'
+                if ($ergebnis.NeueDateien -gt 0) {
+                    Melde ("  OK - {0} neu geladen" -f $ergebnis.NeueDateien) 'Gut'
+                } else {
+                    Melde '  Vollstaendig - war bereits vorhanden' 'Gut'
+                }
                 $erfolgreich++
                 $dateienGesamt += $ergebnis.NeueDateien
                 [void]$verbleibend.Remove($e)
@@ -2619,12 +2845,12 @@ function Menue-Warteschlange {
                 }
                 Schreibe-Log ("Queue OK: {0}" -f $e.Beschreibung) 'OK'
             } elseif ($ergebnis.NeueDateien -gt 0) {
-                Melde ("  Teilerfolg: {0} von {1} - Eintrag bleibt zum Nachladen." -f $ergebnis.NeueDateien, $soll) 'Warnung'
+                Melde ("  Teilerfolg: {0} von {1} - Eintrag bleibt zum Nachladen." -f $abgedeckt, $soll) 'Warnung'
                 $dateienGesamt += $ergebnis.NeueDateien
                 $fehlgeschlagen++
-                Schreibe-Log ("Queue TEIL: {0} ({1}/{2})" -f $e.Beschreibung, $ergebnis.NeueDateien, $soll) 'WARN'
+                Schreibe-Log ("Queue TEIL: {0} ({1}/{2})" -f $e.Beschreibung, $abgedeckt, $soll) 'WARN'
             } else {
-                Melde '  Keine neuen Dateien - Eintrag bleibt in der Schlange.' 'Warnung'
+                Melde '  Nichts geladen - Eintrag bleibt in der Schlange.' 'Warnung'
                 $fehlgeschlagen++
                 Schreibe-Log ("Queue ohne Ergebnis: {0} (Exit {1})" -f $e.Beschreibung, $ergebnis.ExitCode) 'WARN'
             }
@@ -3047,7 +3273,7 @@ function Zeige-Hauptmenue {
 
     Clear-Host
     Zeige-Linie '='
-    Melde '   Y T - S C H A K A L' 'Titel'
+    Melde ("   Y T - S C H A K A L   v{0}" -f $Version) 'Titel'
     Zeige-Linie '='
     Melde ("   Ziel: {0}     Format: {1} @ {2}" -f (Loese-Zielordner $Konfig), $Konfig.Format, $Konfig.Bitrate) 'Grau'
     if ($Konfig.Nachtmodus) {
@@ -3080,9 +3306,10 @@ function Zeige-Hauptmenue {
 # =============================================================================
 
 Clear-Host
-Schreibe-Log '=== Script gestartet ===' 'INFO'
+Schreibe-Log ("=== YT-Schakal v{0} gestartet ===" -f $Version) 'INFO'
 
 $Konfig = Lade-Einstellungen
+$Konfig = Pruefe-Einstellungen -Konfig $Konfig
 
 Schreibe-Log ("Einstellungen: Ziel={0} | Format={1} @ {2} | Threads={3} | Nachtmodus={4} | NurVerifiziert={5} | Schema={6}" -f `
               (Loese-Zielordner $Konfig), $Konfig.Format, $Konfig.Bitrate, $Konfig.Threads,
