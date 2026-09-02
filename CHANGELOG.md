@@ -9,38 +9,125 @@ vernuenftige Bedienoberflaeche.
 
 ---
 
-## [Unveroeffentlicht]
-
-### Geaendert
-- Menuepunkt 3 (Link laden) nennt jetzt ausdruecklich, dass Spotify-Playlists
-  unterstuetzt werden — vorher stand dort nur "Spotify", was den Eindruck
-  erwecken konnte, nur Tracks und Alben seien gemeint. Verweist zusaetzlich
-  auf Menuepunkt 5 fuer ganze Kuenstler-Diskografien.
-- Landet ein Playlist- oder Track-Link versehentlich in Menuepunkt 5
-  (Diskografie), kommt jetzt ein gezielter Hinweis auf Menuepunkt 3 statt der
-  allgemeinen "kein Spotify-Link"-Meldung mit Suchvorschlag.
-
-### Bekannter Fehler
-- Nach dem Abarbeiten der Warteschlange (Taste `S`) muss zweimal eine Taste
-  gedrueckt werden, bevor es zurueck ins Hauptmenue geht: einmal fuer die
-  Bilanzanzeige, danach laeuft die Menueschleife erneut an, findet die jetzt
-  leere Warteschlange und fragt ein zweites Mal. Kein Datenverlust, nur ein
-  ueberfluessiger Tastendruck. Bleibt vorerst so.
+## 1.4.3 — 2026-09-02
 
 ### Behoben
-- `Start-Process` beim Metadaten-Abruf bekommt Argumente jetzt korrekt
-  geschuetzt. Anfuehrungszeichen in Pfaden oder Kuenstlernamen konnten die
-  Kommandozeile zerlegen.
-- `Get-CimInstance` statt `Get-WmiObject` fuer die Stick-Erkennung, mit
-  Rueckfall. `Get-WmiObject` fehlt in PowerShell 7.
-- `Warte-AufTaste` faengt fehlendes `RawUI` ab — betraf die ISE und
-  umgeleitete Eingaben.
+- `Merke-ImArchiv` schrieb dieselbe Zeile bei jedem Lauf erneut in
+  `archiv.txt`. Der Rueckgabewert von `HashSet.Add()` wurde verworfen, statt
+  ihn als "war schon drin"-Pruefung zu nutzen. Faellt seit 1.4.1 staerker
+  auf, weil "bereits vorhanden" nun ebenfalls archiviert wird.
+- `Hole-MitSpotdl` und `Hole-MitSpotdlMehrfach` pruefen jetzt wie ihre
+  yt-dlp-Gegenstuecke, ob das Werkzeug ueberhaupt installiert ist.
+
+---
+
+## 1.4.2 — 2026-09-02
+
+### Behoben
+- **Menuepunkt 3 (Link laden)** wertete weiterhin nur neue Dateien aus.
+  Ein Download, bei dem alles schon vorhanden war, galt als Fehlschlag und
+  wurde nicht archiviert. Damit ist dieser Fehlertyp an allen Stellen
+  bereinigt (Diskografie, Warteschlange, Einzelsuche, Wunschliste, Link).
+- Playlist-Container blockierten die Rekursion: Ein Objekt mit eigenen
+  `entries` wird jetzt immer durchlaufen, bevor geprueft wird, ob es selbst
+  eine Playlist ist.
+- Die ID-Laenge als Erkennungskriterium ist raus — sie traf auch Videos und
+  Kanaele. Erkannt wird ueber URL, `_type`, `ie_key` und Zaehlfelder.
+- Korrigierte Einstellungen werden sofort gespeichert. Vorher kam dieselbe
+  Korrekturmeldung bei jedem Start erneut.
 
 ### Geaendert
-- Das Archiv wird einmal pro Sitzung in ein `HashSet` geladen statt bei jeder
-  Pruefung neu von der Platte gelesen. Bei Listenlaeufen gegen ein grosses
-  Archiv war das der Flaschenhals.
-- Die Warnung vor dem loeschenden Playlist-Sync ist deutlich hervorgehoben.
+- Die Kanal-Playlist-Bilanz trennt jetzt **neu geladen**, **bereits
+  vorhanden** und **Fehler**. Ein wiederholter Kanalimport meldete vorher
+  alles als "ohne Ergebnis".
+
+---
+
+## 1.4.1 — 2026-09-02
+
+### Behoben
+- **`[bool]'false'` ergibt in PowerShell `$true`** — jeder nichtleere String
+  wird wahr. Wer `"Nachtmodus": "false"` in die JSON schrieb, schaltete ihn
+  damit ein. Boolean-Werte werden jetzt textbasiert ausgewertet, unbekannte
+  Eingaben fallen auf den Standard zurueck.
+- **Einzelsuche und Wunschliste** werteten "bereits vorhanden" als
+  Fehlschlag. Betroffene Eintraege wurden nicht archiviert und liefen bei
+  jedem Lauf erneut mit.
+- Eine Playlist wurde nicht gemerkt, wenn der Download in die Warteschlange
+  ging — das `return` kam vor dem Merken.
+- `Finde-Kanaele` prueft yt-dlp vor dem Aufruf.
+- `Start-Process` beim Metadaten-Abruf ist mit `try/catch` abgesichert.
+- Rueckgabeobjekte sind bei fruehem Abbruch vollstaendig (`Uebersprungen`,
+  `Ermittlungsart`).
+- Windows-Argument-Quoting behandelt Backslashes vor Anfuehrungszeichen und
+  am Argumentende korrekt.
+
+### Geaendert
+- Die Gegenprobe im Dateisystem greift jetzt auch, wenn die Werkzeugausgabe
+  gar nichts meldet — vorher nur bei bekanntem Soll.
+- Playlist-Erkennung als Blacklist statt Whitelist: alles mit `list=` gilt,
+  ausser den automatischen Listen `RD`, `LL`, `FL`, `WL`.
+- Die Titel-Zuordnung beim USB-Export sammelt Mehrdeutigkeiten und zeigt
+  sie an, statt still den ersten Treffer zu nehmen.
+
+---
+
+## 1.4.0 — 2026-09-02
+
+### Hinzugefuegt
+- **Playlists merken.** Beim Laden einer Spotify-Playlist ueber Menuepunkt 3
+  kann die Zusammenstellung gemerkt werden — nur Interpret, Titel und
+  Position, ohne Dateipfade. Die Musik bleibt album-sortiert in der
+  Sammlung.
+- **Playlist auf den USB-Stick.** Menuepunkt `U` bietet neben der
+  Albenauswahl jetzt "gemerkte Playlist zusammenstellen": das Script sucht
+  die Titel in der Sammlung und kopiert sie flach und nummeriert in einen
+  eigenen Ordner auf den Stick. Fehlende Titel werden namentlich gemeldet.
+
+### Geaendert
+- Menuepunkt 3 und das Hauptmenue nennen ausdruecklich, dass Spotify-
+  Playlists unterstuetzt werden, und verweisen fuer Kuenstlerkataloge auf
+  Menuepunkt 5.
+- Landet ein Playlist- oder Track-Link in Menuepunkt 5, kommt ein gezielter
+  Hinweis auf Menuepunkt 3 statt der allgemeinen "kein Spotify-Link"-Meldung.
+
+### Bekannte Grenzen
+- Die Zuordnung beim Playlist-Export laeuft ueber Dateiname und
+  Ordnerstruktur, nicht ueber die eingebetteten Tags. Bei abweichendem
+  Namensschema oder umbenannten Ordnern koennen Titel faelschlich als
+  fehlend gelten.
+- `--ignore-errors` verschluckt einzelne gesperrte oder geloeschte Videos in
+  Playlists. Eine Vollstaendigkeitswarnung fehlt noch.
+- Nach dem Abarbeiten der Warteschlange (Taste `S`) muss zweimal eine Taste
+  gedrueckt werden, bevor es zurueck ins Hauptmenue geht.
+
+---
+
+## 1.3.0 — 2026-09-02
+
+### Hinzugefuegt
+- Versionsnummer im Menuekopf und in jeder Startzeile des Logs.
+- Konfigurationspruefung beim Laden: unbekanntes Format, unsinnige Bitrate,
+  Threads ausserhalb 1–8 oder ein Namensschema ohne `{title}` werden auf den
+  Standard zurueckgesetzt.
+- Einmalige Migration aus dem alten Layout: Einstellungen, Archive, Log,
+  Warteschlange sowie `sync\` und `diskografie\` wandern nach `data\`,
+  `liste.txt` wird zu `wunschliste.txt`.
+
+### Behoben
+- Vollstaendig geladene Alben werden jetzt auch archiviert, wenn alle Titel
+  bereits vorhanden waren (neu + uebersprungen >= Soll). Vorher wurde
+  dasselbe Album bei jedem Lauf erneut versucht.
+
+### Geaendert
+- Die Erfolgsermittlung liest die Ausgabe von spotdl und yt-dlp, statt
+  zweimal den kompletten Zielordner zu scannen. Der Zeitstempel-Faellback
+  greift nur noch bei unbekanntem Ausgabeformat oder gemeldetem Fehlbetrag.
+- Doppelte Kanalauswahl in `Waehle-Kanal` zusammengefasst.
+- `Start-Process`-Argumente werden escaped, `Get-CimInstance` statt
+  `Get-WmiObject`, `Warte-AufTaste` faengt fehlendes `RawUI` ab.
+- Das Archiv wird einmal pro Sitzung als `HashSet` geladen statt bei jeder
+  Pruefung neu von der Platte gelesen.
 
 ---
 
@@ -138,8 +225,8 @@ vernuenftige Bedienoberflaeche.
 ### Behoben
 - `Out-String` zerstoerte lange JSON-Antworten, weil es auf Konsolenbreite
   umbricht. Ersetzt durch `-join ''`.
-- Filter auf echte Playlist-IDs (`PL`, `OLAK5uy_`, `UU`). Automatische
-  Radio-Mixe (`RD`) wurden faelschlich als Alben gelesen.
+- Filter auf echte Playlist-IDs. Automatische Radio-Mixe wurden faelschlich
+  als Alben gelesen.
 - Typsichere Behandlung der JSON-Felder — eine `ArgumentException` beim
   Deduplizieren.
 - Kein Such-Rueckfall mehr bei `/channel/UC...`-URLs; die sind eindeutig.
