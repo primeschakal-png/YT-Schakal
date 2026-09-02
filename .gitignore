@@ -1,0 +1,29 @@
+# Alles, was YT-Schakal zur Laufzeit erzeugt
+data/
+
+# Standard-Zielordner (relativ) - Musik gehoert nicht ins Repo
+Musik/
+
+# Vom Nutzer befuellt, individuell
+wunschliste.txt
+
+# Berichte aus der Sammlungspruefung
+pruefbericht.txt
+
+# Falls jemand die Sammlung woanders ablegt
+*.mp3
+*.m4a
+*.flac
+*.ogg
+*.opus
+*.wav
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Editoren
+.vscode/
+.idea/
+*.swp
+*~
