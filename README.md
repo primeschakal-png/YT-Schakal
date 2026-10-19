@@ -22,12 +22,14 @@ Ein Spotify-Konto wird **nicht** gebraucht. spotdl nutzt Spotify nur als Datenba
 | `8` | Werkzeuge aktualisieren | spotdl und yt-dlp per pip auffrischen |
 | `9` | Einstellungen | Format, Bitrate, Namensschema, Nachtmodus … |
 | `A` | Archiv | Bereits geladenes einsehen und zuruecksetzen |
-| `U` | USB-Stick | Alben **oder eine gemerkte Playlist** auf einen Stick kopieren |
+| `U` | USB-Stick | Alben **oder eine gemerkte Playlist** auf einen Stick kopieren, gemerkte Playlists verwalten |
 | `W` | Warteschlange | Auftraege sammeln und unbeaufsichtigt abarbeiten |
 | `B` | Bestandsabgleich | Was fehlt aus gespeicherten Diskografien? |
 | `P` | Sammlung pruefen | Download-Reste und auffaellig kleine Dateien finden |
 
-**Mehrfachauswahl** ueberall dort, wo es mehrere Treffer gibt: Pfeiltasten bewegen, `Space` markiert, `A` alle, `K` keine, `I` umkehren, `Enter` startet, `Esc` bricht ab.
+**Mehrfachauswahl** ueberall dort, wo es mehrere Treffer gibt: Pfeiltasten bewegen, `Space` markiert, `A` alle, `K` keine, `I` umkehren, `Enter` startet, `Esc` oder `Z` bricht ab.
+
+**Zurueck** geht in jedem Untermenue gleich: `Z` oder `0` eingeben. Bei Eingaben ohne Vorgabe reicht auch `Enter`, bei Eingaben mit Vorgabe in eckigen Klammern uebernimmt `Enter` die Vorgabe. Abgebrochen wird nur bei genau einem Zeichen `Z` bzw. `0` — ein Suchbegriff wie "ZZ Top" funktioniert normal. Wo `(J)etzt laden` oder `(W)arteschlange` zur Wahl steht, bedeutet `N` ebenfalls "nichts tun".
 
 ### Wo lade ich was?
 
@@ -50,9 +52,11 @@ Eine Spotify-Playlist quer durch verschiedene Kuenstler stellt vor ein Problem: 
 
 YT-Schakal loest das anders:
 
-1. **Beim Laden** (Menuepunkt `3`, Spotify-Playlist-Link) fragt das Script, ob die Playlist gemerkt werden soll. Gespeichert wird nur die Songliste — Interpret, Titel, Position — unter `data\playlists\`. **Keine Dateipfade**, damit die Sammlung spaeter umsortiert oder neu getaggt werden kann, ohne dass die Playlist kaputtgeht.
+1. **Beim Laden** (Menuepunkt `3` mit einem Spotify- oder YouTube-Playlist-Link, oder Menuepunkt `4` fuer Kanal-Playlists) fragt das Script, ob die Playlist gemerkt werden soll. Gespeichert wird nur die Songliste — Interpret, Titel, Position — unter `data\playlists\`. **Keine Dateipfade**, damit die Sammlung spaeter umsortiert oder neu getaggt werden kann, ohne dass die Playlist kaputtgeht.
 2. **Die Musik selbst** landet ganz normal album-sortiert in der Sammlung. Nichts liegt doppelt.
 3. **Beim USB-Export** (Menuepunkt `U`) laesst sich eine gemerkte Playlist auswaehlen. Das Script sucht die Titel in der Sammlung zusammen und kopiert sie flach und durchnummeriert in einen eigenen Ordner auf den Stick — im Autoradio also eine fertige Playlist.
+
+Gemerkte Playlists lassen sich unter `U` → `3` auch ohne eingesteckten Stick ansehen und loeschen. Geloescht wird nur die Merkliste, nie Musik.
 
 Titel, die in der Playlist stehen aber nicht in der Sammlung liegen, werden vor dem Kopieren namentlich aufgelistet. Ebenso Faelle, bei denen mehrere Dateien auf denselben Titel passen ("Intro", "Home") — dort waehlt das Script den ersten Treffer und sagt dir, welchen.
 
@@ -156,15 +160,13 @@ Reduziert auf zwei gleichzeitige Anfragen und legt 3–10 Sekunden Pause zwische
 
 **Singles und EPs sind bei Spotify kein „Album".** Der Diskografie-Abruf fragt deshalb getrennt nach. Wer verneint, bekommt nur regulaere Alben — EPs fehlen dann.
 
-**Der Bestandsabgleich vergleicht Ordnernamen.** Ein von Hand umbenannter Ordner erscheint faelschlich als fehlend.
+**Der Bestandsabgleich vergleicht Ordnernamen** aus Kuenstler und Album. Ein von Hand umbenannter Ordner, auch ein umbenannter Kuenstlerordner, erscheint faelschlich als fehlend.
 
 **Die Playlist-Zuordnung beim USB-Export nutzt Dateiname und Ordnerstruktur**, nicht die eingebetteten Tags. Beim Standardschema funktioniert das; bei abweichendem Schema oder umbenannten Ordnern koennen Titel faelschlich als fehlend gelten. Sie werden dann aufgelistet, nicht stillschweigend uebergangen.
 
 **Einzelne Titel koennen in Playlists fehlen, ohne dass es auffaellt.** yt-dlp laeuft mit `--ignore-errors`, damit ein gesperrtes oder geloeschtes Video nicht den ganzen Download abbricht. Eine Vollstaendigkeitswarnung gibt es noch nicht.
 
 **„Sign in to confirm you're not a bot"** bedeutet, dass YouTube die IP voruebergehend gesperrt hat. Meist nach einigen Stunden vorbei. Dagegen hilft der Nachtmodus.
-
-**Nach dem Abarbeiten der Warteschlange (Taste `S`) zweimal eine Taste druecken.** Einmal fuer die Bilanzanzeige, danach prueft das Menue erneut, findet die jetzt leere Warteschlange und fragt noch einmal, bevor es zurueck ins Hauptmenue geht. Kein Fehler im Sinne von Datenverlust, nur ein ueberfluessiger zweiter Tastendruck.
 
 ---
 

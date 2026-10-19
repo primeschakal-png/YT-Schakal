@@ -9,6 +9,65 @@ vernuenftige Bedienoberflaeche.
 
 ---
 
+## 1.5.0 — 2026-10-19
+
+### Hinzugefuegt
+- **Einheitliches Zurueck.** In jedem Untermenue fuehrt `Z` oder `0` zurueck,
+  bei Eingaben ohne Vorgabe auch `Enter`. Vorgaben stehen in eckigen
+  Klammern und werden mit `Enter` uebernommen. Abgebrochen wird nur bei genau
+  einem Zeichen, "ZZ Top" oder "0815" bleiben normale Suchbegriffe.
+  Umgesetzt ueber `Lese-Eingabe`, `Frage-Auswahl` und `Frage-JaNein`, die alle
+  verstreuten `Read-Host`-Aufrufe ersetzen.
+- Unbekannte Eingaben bei J/N- und J/W-Fragen werden noch einmal abgefragt,
+  statt still als "Nein" zu gelten.
+- **Wunschliste (2)** fragt nach der Anzahl `(J)etzt`, `(W)arteschlange` oder
+  `(Z)urueck`. In die Warteschlange gehen nur Eintraege, die nicht schon im
+  Archiv stehen.
+- **YouTube-Playlists merken.** Menuepunkt `3` bietet das Merken jetzt auch
+  fuer YouTube-Playlists an, Menuepunkt `4` fuer die ausgewaehlten
+  Kanal-Playlists. Die Songliste kommt per `yt-dlp --flat-playlist`,
+  geloeschte und private Videos werden ausgelassen.
+- **Gemerkte Playlists verwalten.** Menuepunkt `U` fragt zuerst, was passieren
+  soll, und sucht erst danach den Stick. Unter `U` → `3` lassen sich gemerkte
+  Playlists ohne eingesteckten Stick ansehen und loeschen.
+- **Playlist-Sync (6):** `[L]` loescht eine eingerichtete Sync-Datei. Die
+  Musikdateien bleiben liegen.
+- **Werkzeuge aktualisieren (8)** zeigt vorher die installierten Versionen
+  und fragt, ob aktualisiert werden soll.
+- **Einstellungen (9):** Wer mit ungespeicherten Aenderungen zurueckgeht,
+  wird gefragt: speichern, verwerfen oder weiter bearbeiten. Bitrate und
+  Namensschema werden schon bei der Eingabe geprueft.
+- In der Mehrfachauswahl bricht neben `Esc` auch `Z` ab.
+
+### Geaendert
+- **Warteschlangen-Format** ist jetzt `typ|soll|beschreibung|abfrage`. Ein
+  Album aus Diskografie oder Bestandsabgleich steht als eine Album-URL in der
+  Schlange, die Sollzahl im eigenen Feld. Ohne Album-ID bleibt es bei der
+  URL-Liste. Alte Eintraege im Format `typ|beschreibung|abfrage` werden
+  weiter gelesen und unveraendert zurueckgeschrieben.
+- Lange URL-Listen gehen in Bloecken zu 20 an spotdl. Windows begrenzt eine
+  Kommandozeile auf 32767 Zeichen, das reicht fuer gut 500 Spotify-URLs.
+- **Bestandsabgleich (B)** zaehlt nach Kuenstler und Album statt nur nach
+  Albumname. Zwei "Greatest Hits" verschiedener Kuenstler wurden vorher
+  zusammengezaehlt und konnten ein fehlendes Album als vollstaendig melden.
+  Albumordner direkt im Zielordner (flaches Schema) werden weiter ueber den
+  Albumnamen gefunden, wenn er eindeutig ist.
+
+### Behoben
+- Nach dem Abarbeiten der Warteschlange geht es mit einem Tastendruck zurueck
+  ins Hauptmenue, wenn alles erledigt ist. Bleibt etwas offen, erscheint die
+  Restliste.
+- Warteschlangen-Eintraege ohne Sollzahl, deren Titel schon vorhanden waren,
+  blieben fuer immer in der Schlange. Sie gelten jetzt als erledigt.
+- Eingereihte Suchbegriffe und Links landen unter ihrem eigenen Text im
+  Archiv, wie bei Menuepunkt 1 bis 3, nicht mehr unter `album: ...`.
+- `Waehle-AusListe` bricht ohne echtes Konsolenfenster sauber ab, statt mit
+  einer Ausnahme aus `ReadKey` auszusteigen.
+- Menuepunkt `3`: `N` bei "(J)etzt oder (W)arteschlange" lud bisher sofort.
+  Jetzt passiert nichts.
+
+---
+
 ## 1.4.3 — 2026-09-02
 
 ### Behoben
