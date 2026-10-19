@@ -94,7 +94,7 @@
     position: absolute;
     top: 0; left: 50%;
     transform: translateX(-50%);
-    width: 700px; height: 700px;
+    width: min(700px, 100vw); height: 700px;
     background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
     z-index: -1;
     pointer-events: none;
@@ -233,6 +233,7 @@
   }
 
   /* ---------- TERMINAL MOCKUP ---------- */
+  .table-wrap { overflow-x: auto; max-width: 100%; }
   .terminal {
     background: var(--code-bg);
     border: 1px solid var(--border);
@@ -537,6 +538,7 @@
       <span>YT-Schakal</span>
     </a>
     <ul class="nav-links">
+      <li><a href="#neu">Neu in 1.5</a></li>
       <li><a href="#features">Features</a></li>
       <li><a href="#preview">Vorschau</a></li>
       <li><a href="#menu">Menü</a></li>
@@ -564,6 +566,51 @@
   </div>
 </header>
 
+<!-- ============ NEU IN 1.5.0 ============ -->
+<section id="neu">
+  <h2 class="section-title">Neu in 1.5.0</h2>
+  <p class="section-subtitle">Einheitliche Bedienung, aufgeräumte Datenleichen, robustere Warteschlange.</p>
+
+  <div class="features">
+    <div class="feature-card">
+      <div class="feature-icon">↩️</div>
+      <h3>Zurück ist überall gleich</h3>
+      <p>In jedem Untermenü führt <strong>Z</strong> oder <strong>0</strong> zurück. Vorgaben stehen in eckigen Klammern und werden mit Enter übernommen. „ZZ Top“ bleibt ein ganz normaler Suchbegriff.</p>
+      <div class="hint">(Enter/Z = Zurueck)</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📼</div>
+      <h3>YouTube-Playlists merken</h3>
+      <p>Nicht mehr nur Spotify: Auch YouTube-Playlists aus [3] und Kanal-Playlists aus [4] lassen sich für den USB-Export merken.</p>
+      <div class="hint">yt-dlp --flat-playlist</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🗂️</div>
+      <h3>Datenleichen loswerden</h3>
+      <p>Gemerkte Playlists unter [U] verwalten, auch ohne eingesteckten Stick. Eingerichtete Sync-Playlists unter [6] löschen. Die Musik bleibt dabei liegen.</p>
+      <div class="hint">[U] → [3] · [6] → [L]</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⏳</div>
+      <h3>Robustere Warteschlange</h3>
+      <p>Alben stehen als eine Album-URL mit Sollzahl in der Schlange. Die Wunschliste kann ebenfalls hinein. Nach dem Durchlauf geht es mit einem Tastendruck zurück.</p>
+      <div class="hint">typ|soll|beschreibung|abfrage</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎯</div>
+      <h3>Genauerer Bestandsabgleich</h3>
+      <p>Verglichen wird nach Künstler und Album. Zwei „Greatest Hits“ verschiedener Bands werden nicht mehr zusammengezählt.</p>
+      <div class="hint">queen|greatesthits</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🛡️</div>
+      <h3>Weniger Überraschungen</h3>
+      <p>Unbekannte Eingaben werden noch einmal abgefragt statt still als „Nein“ gewertet. Die Einstellungen fragen nach, bevor ungespeicherte Änderungen verloren gehen.</p>
+      <div class="hint">(S)peichern · (V)erwerfen</div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ FEATURES ============ -->
 <section id="features">
   <h2 class="section-title">Was der Schakal kann</h2>
@@ -579,7 +626,7 @@
     <div class="feature-card">
       <div class="feature-icon">📋</div>
       <h3>[2] Wunschliste</h3>
-      <p>Eine Textdatei mit allen Wünschen füllen – der Schakal arbeitet sie komplett ab. Erledigtes wird übersprungen.</p>
+      <p>Eine Textdatei mit allen Wünschen füllen – der Schakal arbeitet sie komplett ab oder legt sie in die Warteschlange. Erledigtes wird übersprungen.</p>
       <div class="hint">wunschliste.txt</div>
     </div>
     <div class="feature-card">
@@ -603,13 +650,13 @@
     <div class="feature-card">
       <div class="feature-icon">🎯</div>
       <h3>Playlists merken</h3>
-      <p>Spotify-Playlist laden und die Zusammenstellung merken – nur die Songliste, keine Dateipfade. Die Musik bleibt album-sortiert, nichts liegt doppelt.</p>
+      <p>Spotify- oder YouTube-Playlist laden und die Zusammenstellung merken – nur die Songliste, keine Dateipfade. Die Musik bleibt album-sortiert, nichts liegt doppelt.</p>
       <div class="hint">data\playlists\</div>
     </div>
     <div class="feature-card">
       <div class="feature-icon">🔄</div>
       <h3>[6] Playlist-Sync</h3>
-      <p>Ordner mit Spotify-Playlist abgleichen – fehlende Titel kommen, überflüssige gehen. Mehrere Playlists gleichzeitig.</p>
+      <p>Ordner mit Spotify-Playlist abgleichen – fehlende Titel kommen, überflüssige gehen. Mehrere Playlists gleichzeitig, eingerichtete lassen sich wieder entfernen.</p>
       <div class="hint">⚠ löscht Dateien</div>
     </div>
     <div class="feature-card">
@@ -621,7 +668,7 @@
     <div class="feature-card">
       <div class="feature-icon">🚗</div>
       <h3>[U] USB-Stick</h3>
-      <p>Alben oder eine gemerkte Playlist auf den Stick fürs Autoradio kopieren – optional mit Zufallsmix und M3U. FAT32-Warnung inklusive.</p>
+      <p>Alben oder eine gemerkte Playlist auf den Stick fürs Autoradio kopieren – optional mit Zufallsmix und M3U. Gemerkte Playlists auch ohne Stick verwalten. FAT32-Warnung inklusive.</p>
       <div class="hint">_Fahrmix\ + _Fahrmix.m3u</div>
     </div>
     <div class="feature-card">
@@ -651,7 +698,7 @@
     <div class="feature-card">
       <div class="feature-icon">⏳</div>
       <h3>[W] Warteschlange</h3>
-      <p>Gesammelte Aufträge aus Diskografie, Kanal-Playlists oder Link-Modus am Stück abarbeiten. Optional mit Shutdown.</p>
+      <p>Gesammelte Aufträge aus Wunschliste, Diskografie, Kanal-Playlists, Link-Modus oder Bestandsabgleich am Stück abarbeiten. Teilerfolge bleiben stehen. Optional mit Shutdown.</p>
       <div class="hint">shutdown /s /t 120</div>
     </div>
     <div class="feature-card">
@@ -691,7 +738,7 @@
      <span class="t-cmd">[8]</span>  Werkzeuge aktualisieren
      <span class="t-cmd">[9]</span>  Einstellungen
      <span class="t-cmd">[A]</span>  Archiv
-     <span class="t-cmd">[U]</span>  USB-Stick bestücken  - Alben oder gemerkte Playlist auf den Stick
+     <span class="t-cmd">[U]</span>  USB-Stick bestücken  - Alben, gemerkte Playlists, Playlists verwalten
      <span class="t-cmd">[W]</span>  Warteschlange        - gesammelte Aufträge abarbeiten
      <span class="t-title">[B]</span>  <span class="t-title">Bestandsabgleich     - was fehlt aus gespeicherten Diskografien?</span>
      <span class="t-title">[P]</span>  <span class="t-title">Sammlung prüfen      - Reste und auffällig kleine Dateien</span>
@@ -760,11 +807,21 @@
       <span class="dot dot-g"></span>
       <span class="terminal-title">Menüpunkt U · Gemerkte Playlist zusammenstellen</span>
     </div>
-    <div class="terminal-body"><span class="t-title">  Was soll auf den Stick?</span>
-    <span class="t-cmd">[1]</span>  Alben aus der Sammlung auswählen
-    <span class="t-cmd">[2]</span>  Gemerkte Playlist zusammenstellen (3 vorhanden)
+    <div class="terminal-body"><span class="t-dim">===========================================================================</span>
+<span class="t-title">  USB-Stick bestuecken</span>
+<span class="t-dim">===========================================================================</span>
+    <span class="t-cmd">[1]</span>  Alben aus der Sammlung auf den Stick
+    <span class="t-cmd">[2]</span>  Gemerkte Playlist auf den Stick       (3 vorhanden)
+    <span class="t-cmd">[3]</span>  Gemerkte Playlists verwalten
+    <span class="t-cmd">[Z]</span>  Zurueck
 
-<span class="t-prompt">  Auswahl [1]:</span> <span class="t-str">2</span>
+<span class="t-prompt">  Auswahl [1] (Z = Zurueck):</span> <span class="t-str">2</span>
+
+<span class="t-title">  Gefundene Sticks:</span>
+    <span class="t-cmd">[1]</span>  E:  (AUTO)  FAT32  -  21,4 von 28,8 GB frei
+
+<span class="t-prompt">  Stick-Nummer (Enter/Z = Zurueck):</span> <span class="t-str">1</span>
+<span class="t-prompt">  Nummer (Enter/Z = Zurueck):</span> <span class="t-str">2</span>
 
 <span class="t-dim">===========================================================================</span>
 <span class="t-title">  Sommer 2026</span>
@@ -781,7 +838,7 @@
 <span class="t-dim">  nach dem Tagging ab (Remaster, Live-Fassung, Featuring).</span>
 
 <span class="t-prompt">  Wird kopiert: 27 Titel, 189 MB</span>
-<span class="t-prompt">  Los? (j/n)</span> <span class="t-str">j</span>
+<span class="t-prompt">  Los? (j/n, Z = Zurueck) [J]:</span> <span class="t-str">j</span>
 
 <span class="t-dim">---------------------------------------------------------------------------</span>
 <span class="t-title">  Bilanz</span>
@@ -817,12 +874,90 @@
 <span class="t-dim">    10 Titel  Pink Floyd - The Final Cut</span>
 <span class="t-dim">     8 Titel  Led Zeppelin - Houses of the Holy</span>
 
-<span class="t-dim">  Hinweis: Der Abgleich vergleicht Ordnernamen mit Albumtiteln.</span>
+<span class="t-dim">  Hinweis: Der Abgleich vergleicht Ordnernamen mit Kuenstler und Albumtitel.</span>
 <span class="t-dim">  Umbenannte oder verschobene Ordner erscheinen fälschlich als fehlend.</span>
 
-<span class="t-prompt">  Lücken auswählen und in die Warteschlange legen? (j/n)</span> <span class="t-str">j</span></div>
+<span class="t-prompt">  Lücken auswählen und in die Warteschlange legen? (j/n, Z = Zurueck) [J]:</span> <span class="t-str">j</span></div>
   </div>
   <p class="terminal-caption">↑ Zeigt, was aus gespeicherten Diskografien noch fehlt.</p>
+
+  <!-- ============ TERMINAL: LINK LADEN ============ -->
+  <div class="terminal">
+    <div class="terminal-header">
+      <span class="dot dot-r"></span>
+      <span class="dot dot-y"></span>
+      <span class="dot dot-g"></span>
+      <span class="terminal-title">Menüpunkt 3 · YouTube-Playlist laden und merken</span>
+    </div>
+    <div class="terminal-body"><span class="t-dim">===========================================================================</span>
+<span class="t-title">  Link laden</span>
+<span class="t-dim">===========================================================================</span>
+<span class="t-dim">  Spotify-Link      -> spotdl (Track, Album ODER Playlist - sauberes Tagging)</span>
+<span class="t-dim">  YouTube und Rest  -> yt-dlp  (auch Live, Sets, Vortraege)</span>
+<span class="t-dim">  Kein Link         -> spotdl-Suche</span>
+
+<span class="t-prompt">  Link oder Suchbegriff (Enter/Z = Zurueck):</span> <span class="t-str">https://www.youtube.com/playlist?list=PLx9...</span>
+<span class="t-prompt">  Sieht nach Playlist/Album aus. Alles laden? (j/n, Z = Zurueck) [N]:</span> <span class="t-str">j</span>
+
+<span class="t-dim">  Das ist eine Playlist. Die Titel landen wie gewohnt in ihren</span>
+<span class="t-dim">  Ordnern - die Playlist-Zusammenstellung geht dabei verloren.</span>
+<span class="t-dim">  Auf Wunsch merkt sich das Script, welche Titel dazugehoeren.</span>
+
+<span class="t-prompt">  Playlist merken? (j/n, Z = Zurueck) [J]:</span>
+<span class="t-prompt">  Name fuer die Playlist [Playlist-20261019-1124] (Z = Zurueck):</span> <span class="t-str">Tiny Desk Favoriten</span>
+
+<span class="t-prompt">  (J)etzt laden, in (W)arteschlange legen, (Z)urueck [J]:</span> <span class="t-str">w</span>
+<span class="t-ok">  In die Warteschlange gelegt (Menuepunkt W).</span>
+
+<span class="t-dim">  Hole die Songliste zum Merken ...</span>
+<span class="t-ok">  Playlist 'Tiny Desk Favoriten' gemerkt.</span></div>
+  </div>
+  <p class="terminal-caption">↑ Jede Frage nennt ihre Vorgabe in eckigen Klammern. Z führt an jeder Stelle zurück.</p>
+
+  <!-- ============ TERMINAL: WARTESCHLANGE ============ -->
+  <div class="terminal">
+    <div class="terminal-header">
+      <span class="dot dot-r"></span>
+      <span class="dot dot-y"></span>
+      <span class="dot dot-g"></span>
+      <span class="terminal-title">Menüpunkt W · Warteschlange abarbeiten</span>
+    </div>
+    <div class="terminal-body"><span class="t-dim">===========================================================================</span>
+<span class="t-title">  Warteschlange</span>
+<span class="t-dim">===========================================================================</span>
+  4 Auftrag/Auftraege:
+
+    <span class="t-cmd">[ 1]</span>  spotdl          10 T  Pink Floyd - The Final Cut
+    <span class="t-cmd">[ 2]</span>  spotdl           8 T  Led Zeppelin - Houses of the Holy
+    <span class="t-cmd">[ 3]</span>  spotdl                Dire Straits Sultans of Swing
+    <span class="t-cmd">[ 4]</span>  ytdlp-playlist        https://www.youtube.com/playlist?list=PLx9...
+
+    <span class="t-cmd">[S]</span>  Abarbeiten starten
+    <span class="t-cmd">[E]</span>  Einzelnen Eintrag loeschen
+    <span class="t-cmd">[L]</span>  Alles leeren
+    <span class="t-cmd">[Z]</span>  Zurueck
+
+<span class="t-prompt">  Auswahl (Enter/Z = Zurueck):</span> <span class="t-str">s</span>
+<span class="t-prompt">  Rechner nach Abschluss herunterfahren? (j/n, Z = Zurueck) [N]:</span> <span class="t-str">j</span>
+<span class="t-warn">  Ok - nach dem letzten Auftrag faehrt der Rechner mit 2 Minuten</span>
+<span class="t-warn">  Vorlauf herunter. Abbrechen geht dann mit:  shutdown /a</span>
+
+<span class="t-dim">---------------------------------------------------------------------------</span>
+<span class="t-title">  [1/4]  Pink Floyd - The Final Cut  (spotdl)</span>
+<span class="t-dim">---------------------------------------------------------------------------</span>
+<span class="t-ok">  OK - 10 neu geladen</span>
+<span class="t-dim">  ...</span>
+
+<span class="t-dim">===========================================================================</span>
+<span class="t-title">  Bilanz</span>
+<span class="t-dim">===========================================================================</span>
+<span class="t-ok">  Erledigt      : 4</span>
+  Ohne Ergebnis : 0
+<span class="t-ok">  Neue Dateien  : 37</span>
+<span class="t-dim">  Laufzeit      : 00:41:12</span>
+<span class="t-warn">  Der Rechner faehrt in 2 Minuten herunter.  Abbruch:  shutdown /a</span></div>
+  </div>
+  <p class="terminal-caption">↑ Die Spalte „T“ ist die erwartete Titelzahl. Fehlt am Ende etwas, bleibt der Eintrag zum Nachladen stehen.</p>
 </section>
 
 <!-- ============ PLAYLIST-KONZEPT ============ -->
@@ -839,7 +974,7 @@
     <div class="step">
       <div class="step-num">1</div>
       <h4>Merken beim Laden</h4>
-      <p>Bei einem Spotify-Playlist-Link unter <strong>[3]</strong> fragt der Schakal, ob die Playlist gemerkt werden soll. Gespeichert wird nur die Songliste – Interpret, Titel, Position. <strong>Keine Dateipfade.</strong></p>
+      <p>Bei einem Spotify- oder YouTube-Playlist-Link unter <strong>[3]</strong> und bei Kanal-Playlists unter <strong>[4]</strong> fragt der Schakal, ob die Playlist gemerkt werden soll. Gespeichert wird nur die Songliste – Interpret, Titel, Position. <strong>Keine Dateipfade.</strong></p>
     </div>
     <div class="step">
       <div class="step-num">2</div>
@@ -876,21 +1011,21 @@
       <span class="menu-key">2</span>
       <div class="menu-text">
         <strong>Wunschliste</strong>
-        <span>Alle Einträge aus <code style="color:var(--cyan)">wunschliste.txt</code> abarbeiten. Bilanz am Ende.</span>
+        <span>Alle Einträge aus <code style="color:var(--cyan)">wunschliste.txt</code> abarbeiten oder in die Warteschlange legen. Bilanz am Ende.</span>
       </div>
     </div>
     <div class="menu-item">
       <span class="menu-key">3</span>
       <div class="menu-text">
         <strong>Link laden</strong>
-        <span>Spotify-Track, -Album oder -Playlist → spotdl. YouTube/SC/Bandcamp → yt-dlp. Playlists können gemerkt werden.</span>
+        <span>Spotify-Track, -Album oder -Playlist → spotdl. YouTube/SC/Bandcamp → yt-dlp. Spotify- und YouTube-Playlists können gemerkt werden.</span>
       </div>
     </div>
     <div class="menu-item">
       <span class="menu-key">4</span>
       <div class="menu-text">
         <strong>Kanal-Playlists</strong>
-        <span>YouTube-Kanal per @handle oder URL durchsuchen. Playlists interaktiv auswählen.</span>
+        <span>YouTube-Kanal per @handle oder URL durchsuchen. Playlists interaktiv auswählen und auf Wunsch merken.</span>
       </div>
     </div>
     <div class="menu-item">
@@ -904,7 +1039,7 @@
       <span class="menu-key">6</span>
       <div class="menu-text">
         <strong>Playlist-Sync</strong>
-        <span>Ordner mit Spotify-Playlist gleichhalten. <span style="color:var(--warn)">Löschen-Modus!</span></span>
+        <span>Ordner mit Spotify-Playlist gleichhalten. <span style="color:var(--warn)">Löschen-Modus!</span> Sync-Dateien per [L] entfernen.</span>
       </div>
     </div>
     <div class="menu-item">
@@ -918,14 +1053,14 @@
       <span class="menu-key">8</span>
       <div class="menu-text">
         <strong>Werkzeuge aktualisieren</strong>
-        <span>spotdl und yt-dlp per pip auf neuesten Stand heben.</span>
+        <span>Zeigt die installierten Versionen und hebt spotdl und yt-dlp auf Wunsch per pip auf den neuesten Stand.</span>
       </div>
     </div>
     <div class="menu-item">
       <span class="menu-key">9</span>
       <div class="menu-text">
         <strong>Einstellungen</strong>
-        <span>Zielordner, Format, Bitrate, Schema, Threads, Nachtmodus, Log.</span>
+        <span>Zielordner, Format, Bitrate, Schema, Threads, Nachtmodus, Log. Fragt vor dem Verwerfen nach.</span>
       </div>
     </div>
     <div class="menu-item">
@@ -939,21 +1074,21 @@
       <span class="menu-key">U</span>
       <div class="menu-text">
         <strong>USB-Stick bestücken</strong>
-        <span>Alben oder gemerkte Playlist aufs Auto-Radio kopieren. Optional Mix-Ordner + M3U.</span>
+        <span>Alben oder gemerkte Playlist aufs Auto-Radio kopieren. Optional Mix-Ordner + M3U. Gemerkte Playlists verwalten.</span>
       </div>
     </div>
     <div class="menu-item">
       <span class="menu-key">W</span>
       <div class="menu-text">
         <strong>Warteschlange</strong>
-        <span>Gesammelte Aufträge abarbeiten. Optional mit Shutdown nach Ende.</span>
+        <span>Gesammelte Aufträge abarbeiten, mit Sollzahl je Album. Optional mit Shutdown nach Ende.</span>
       </div>
     </div>
     <div class="menu-item">
       <span class="menu-key">B</span>
       <div class="menu-text">
         <strong>Bestandsabgleich</strong>
-        <span>Zeigt fehlende Alben aus Diskografien. Lücken direkt in Queue legen.</span>
+        <span>Zeigt fehlende Alben aus Diskografien, abgeglichen nach Künstler und Album. Lücken direkt in Queue legen.</span>
       </div>
     </div>
     <div class="menu-item">
@@ -971,7 +1106,7 @@
   <h2 class="section-title">Einstellungen im Detail</h2>
   <p class="section-subtitle">Alle Parameter, die sich unter Menüpunkt [9] anpassen lassen – mit Standardwerten.</p>
 
-  <table class="settings-table">
+  <div class="table-wrap"><table class="settings-table">
     <thead>
       <tr>
         <th>Parameter</th>
@@ -1036,7 +1171,7 @@
         <td><code style="color:var(--danger)">nein</code></td>
       </tr>
     </tbody>
-  </table>
+  </table></div>
 
   <div class="info-box">
     <h3>🛡️ Selbstheilende Konfiguration</h3>
